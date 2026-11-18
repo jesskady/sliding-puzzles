@@ -2,6 +2,8 @@
 
 Variations on the 15 puzzle: one missing tile, slide tiles into the gap to put them back in order, on boards of different shapes.
 
+**Play:** https://jesskady.github.io/sliding-puzzles/ (works on phones: tap a tile, or slide your finger from the gap through tiles)
+
 ## Boards
 
 - **Square**: the classic, 3×3 to 6×6
