@@ -33,3 +33,9 @@ Then open http://localhost:8090.
 ## Adding a board
 
 Each board is a builder in `index.html` that returns a list of cells, each with a polygon, a center, and its neighbor cell indices. The game logic, solver, and mouse control work from that graph alone. Solved state is tile *k* in cell *k*−1, with the gap in the last cell.
+
+## Swipecube
+
+A Rubik's cube built for phones: **https://jesskady.github.io/sliding-puzzles/cube/**
+
+An exploded view shows the front face framed by the top, bottom, left and right faces, plus an x-ray back preview. Drag any sticker and its row or column turns with your finger (R, U, F and so on, plus B from the outer rows). Pads below the cube turn the whole cube (x/y and z). Includes scramble, a solve timer, undo, animation speed, slice mode, and a drag-to-rearrange bottom row. The whole thing is `cube/index.html`.
