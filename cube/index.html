@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <style>
-/* Layout: one-screen instrument. Timer strip, exploded cube board (front face framed by its four neighbours, back face tucked bottom-right), control row. Single dark world so sticker colours glow. */
+/* Layout: one-screen instrument. Timer strip, exploded cube board (front face framed by its four neighbours), bottom row of rearrangeable blocks (x/y pad, z pad, back preview, slice/wide toggle), control row. Single dark world so sticker colours glow. */
 :root{
   color-scheme: dark;
   --ground:#111418;
@@ -35,46 +35,27 @@ body{
   -webkit-tap-highlight-color:transparent;
 }
 .app{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:12px;padding-block:12px;box-sizing:border-box;min-height:100%}
-.pad{fill:var(--panel);stroke:var(--line);stroke-width:1.5;stroke-dasharray:6 6}
-.hint{fill:var(--muted);font-family:var(--mono);font-size:17px}
-.ico{stroke:var(--muted);stroke-width:3.5;fill:none;stroke-linecap:round}
-.ah{fill:var(--muted)}
-.lastbox{text-align:center}
-.lt{font-family:var(--mono);font-weight:600;font-size:30px;line-height:1;min-height:1em}
-.fill{flex:1;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px;opacity:.6;min-height:24px}
-.sheet{position:fixed;inset:0;background:var(--ground);overflow:auto;touch-action:pan-y;z-index:20;
-  padding:max(20px, env(safe-area-inset-top, 0px)) max(20px, env(safe-area-inset-right, 0px)) max(20px, env(safe-area-inset-bottom, 0px)) max(20px, env(safe-area-inset-left, 0px));
-  font-size:15px;line-height:1.6;color:var(--muted);user-select:text;-webkit-user-select:text}
-.sheet h2{color:var(--ink);font-size:20px;margin:0 0 8px}
-.sheet h3{color:var(--ink);font-size:16px;margin:26px 0 4px}
-.sheet .inner{max-width:560px;margin:0 auto}
-.row{display:flex;justify-content:space-between;align-items:center;gap:10px 14px;flex-wrap:wrap;padding-block:12px;border-bottom:1px solid var(--line)}
-.row .name{color:var(--ink)}
-.arr-outline{display:none;fill:rgba(134,182,255,.07);stroke:var(--accent);stroke-width:2.5;stroke-dasharray:8 7}
-.blk{transition:transform 170ms ease}
-.blk.dragging{transition:none}
-.cubeg{transition:opacity 200ms}
-body.arranging .arr-outline{display:inline}
-body.arranging .cubeg{opacity:.15}
-body.arranging header,body.arranging .controls,body.arranging .scr{opacity:.15;pointer-events:none;transition:opacity 200ms}
-body.arranging #board{cursor:grab}
-.arrbar{position:fixed;left:0;right:0;bottom:0;z-index:15;display:flex;align-items:center;justify-content:space-between;gap:12px;
-  background:var(--panel);border-top:1px solid var(--line);color:var(--ink);font-size:15px;
-  padding:12px max(16px, env(safe-area-inset-right, 0px)) max(12px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px))}
-.row .sub{display:block;font-size:13px;color:var(--muted)}
-.sheet ul{padding-left:18px;max-width:60ch}
-.sheet b{color:var(--ink);font-family:var(--mono);font-weight:500}
 header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
 .time{font-family:var(--mono);font-weight:600;font-size:40px;font-variant-numeric:tabular-nums;line-height:1;letter-spacing:-.01em}
 .time.done{color:var(--good)}
 .phase{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
 .stats{text-align:right;font-family:var(--mono);font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;line-height:1.5}
 .stats b{color:var(--ink);font-weight:500}
+.lastbox{text-align:center}
+.lt{font-family:var(--mono);font-weight:600;font-size:30px;line-height:1;min-height:1em}
 #board{width:100%;max-width:min(100%, calc((100dvh - 200px) * 0.799));margin:0 auto;display:block;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 .st{transition:fill 120ms ease-out}
+.pad{fill:var(--panel);stroke:var(--line);stroke-width:1.5;stroke-dasharray:6 6}
+.hint{fill:var(--muted);font-family:var(--mono);font-size:17px}
+.ico{stroke:var(--muted);stroke-width:3.5;fill:none;stroke-linecap:round}
+.ah{fill:var(--muted)}
 .lbl{fill:var(--muted);font-family:var(--display);font-size:14px;letter-spacing:.12em}
-.last{fill:var(--ink);font-family:var(--mono);font-weight:600;font-size:76px}
-.scr{font-family:var(--mono);font-size:12px;color:var(--muted);min-height:1.4em;text-align:center;word-spacing:.15em}
+.opt{fill:transparent;stroke:var(--line);stroke-width:1.5}
+.opt.on{fill:var(--accent);stroke:var(--accent)}
+.optt{fill:var(--muted);font-family:var(--display);font-weight:700;font-size:14px;letter-spacing:.08em}
+.optt.on{fill:#0c1420}
+.blk.off{opacity:.3}
+.scr{font-family:var(--mono);font-size:12px;color:var(--muted);min-height:1.4em;text-align:center;word-spacing:.15em;overflow-wrap:anywhere}
 .controls{display:flex;gap:8px;flex-wrap:wrap}
 button{
   font:500 15px var(--display);color:var(--ink);background:var(--panel);
@@ -84,15 +65,33 @@ button{
 button.primary{background:var(--accent);color:#0c1420;border-color:transparent;font-weight:700}
 button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 button:active{transform:translateY(1px)}
-.opts{display:flex;gap:16px;flex-wrap:wrap;font-size:14px;color:var(--muted);align-items:center}
-.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;flex-wrap:wrap}
 .seg button{border:0;border-radius:0;padding:7px 11px;font-size:13px;flex:none;background:transparent;color:var(--muted)}
 .seg button[aria-pressed="true"]{background:var(--line);color:var(--ink)}
 label.chk{display:inline-flex;gap:7px;align-items:center}
-details{border-top:1px solid var(--line);padding-top:10px;font-size:14px;color:var(--muted);line-height:1.55}
-summary{cursor:pointer;color:var(--ink);font-weight:500}
-details ul{padding-left:18px;margin:8px 0 0}
-details b{color:var(--ink);font-family:var(--mono);font-weight:500}
+.sheet{position:fixed;inset:0;background:var(--ground);overflow:auto;touch-action:pan-y;z-index:20;
+  padding:max(20px, env(safe-area-inset-top, 0px)) max(20px, env(safe-area-inset-right, 0px)) max(20px, env(safe-area-inset-bottom, 0px)) max(20px, env(safe-area-inset-left, 0px));
+  font-size:15px;line-height:1.6;color:var(--muted);user-select:text;-webkit-user-select:text}
+.sheet h2{color:var(--ink);font-size:20px;margin:0 0 8px}
+.sheet h3{color:var(--ink);font-size:16px;margin:26px 0 4px}
+.sheet .inner{max-width:560px;margin:0 auto}
+.sheet ul{padding-left:18px;max-width:60ch}
+.sheet b{color:var(--ink);font-family:var(--mono);font-weight:500}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px 14px;flex-wrap:wrap;padding-block:12px;border-bottom:1px solid var(--line)}
+.row .name{color:var(--ink)}
+.row .sub{display:block;font-size:13px;color:var(--muted)}
+.arr-outline{display:none;fill:rgba(134,182,255,.07);stroke:var(--accent);stroke-width:2.5;stroke-dasharray:8 7}
+.blk{transition:transform 170ms ease}
+.blk.dragging{transition:none}
+.cubeg{transition:opacity 200ms}
+body.arranging .arr-outline{display:inline}
+body.arranging .cubeg{opacity:.15}
+body.arranging .blk.off{opacity:1}
+body.arranging header,body.arranging .controls,body.arranging .scr{opacity:.15;pointer-events:none;transition:opacity 200ms}
+body.arranging #board{cursor:grab}
+.arrbar{position:fixed;left:0;right:0;bottom:0;z-index:15;display:flex;align-items:center;justify-content:space-between;gap:12px;
+  background:var(--panel);border-top:1px solid var(--line);color:var(--ink);font-size:15px;
+  padding:12px max(16px, env(safe-area-inset-right, 0px)) max(12px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px))}
 @media (prefers-reduced-motion: reduce){.st{transition:none}}
 </style>
 </head>
@@ -109,7 +108,7 @@ details b{color:var(--ink);font-family:var(--mono);font-weight:500}
       <div class="lt" id="last"></div>
     </div>
     <div class="stats">
-      moves <b id="moves">0</b><br>
+      <span id="size">3×3</span> · moves <b id="moves">0</b><br>
       best <b id="best">–</b>
     </div>
   </header>
@@ -123,7 +122,6 @@ details b{color:var(--ink);font-family:var(--mono);font-weight:500}
     <button id="btnReset">Reset</button>
     <button id="btnHelp" style="flex:0 0 auto">Settings</button>
   </div>
-
 </div>
 
 <div class="arrbar" id="arrbar" hidden>
@@ -135,6 +133,15 @@ details b{color:var(--ink);font-family:var(--mono);font-weight:500}
   <p style="margin:0 0 14px"><a href="../" style="color:var(--accent)">← Sliding puzzles</a></p>
   <h2>Settings</h2>
   <div class="row">
+    <span class="name">Cube size<span class="sub">Switching sizes starts a fresh, solved cube</span></span>
+    <span class="seg" role="group" aria-label="Cube size">
+      <button data-k="size" data-v="2">2×2</button>
+      <button data-k="size" data-v="3">3×3</button>
+      <button data-k="size" data-v="4">4×4</button>
+      <button data-k="size" data-v="5">5×5</button>
+    </span>
+  </div>
+  <div class="row">
     <span class="name">Turn animation</span>
     <span class="seg" role="group" aria-label="Turn animation speed">
       <button data-k="anim" data-v="off">Off</button>
@@ -144,7 +151,7 @@ details b{color:var(--ink);font-family:var(--mono);font-weight:500}
     </span>
   </div>
   <div class="row">
-    <span class="name">Middle row/column drag<span class="sub">Turn the whole cube, or turn just the slice (M, E, S)</span></span>
+    <span class="name">Middle row/column drag (3×3)<span class="sub">Turn the whole cube, or turn just the slice (M, E, S)</span></span>
     <span class="seg" role="group" aria-label="Middle row and column drag">
       <button data-k="mode" data-v="rotate">Whole cube</button>
       <button data-k="mode" data-v="slice">Slice</button>
@@ -155,17 +162,17 @@ details b{color:var(--ink);font-family:var(--mono);font-weight:500}
     <span class="sub">Keep dragging past one sticker to make R into R2</span>
   </div>
   <div class="row">
-    <span class="name">Bottom row order<span class="sub">Drag the x/y pad, z pad and back preview into the order you like</span></span>
+    <span class="name">Bottom row order<span class="sub">Drag the x/y pad, z pad, back preview and slice/wide toggle into the order you like</span></span>
     <button id="btnArrange" style="flex:0 0 auto">Rearrange</button>
   </div>
   <h3>How the swipes work</h3>
     <ul>
-      <li>Swipe the cross-arrows pad to turn the whole cube: left/right is <b>y</b>, up/down is <b>x</b>.</li>
-      <li>Swipe the curved-arrows pad right for <b>z</b> (clockwise) and left for <b>z'</b>.</li>
       <li>Drag any sticker. Its row or column turns the way your finger goes.</li>
       <li>Front face: right column up/down is <b>R</b>/<b>R'</b>, left column down/up is <b>L</b>/<b>L'</b>, top row left/right is <b>U</b>/<b>U'</b>, bottom row right/left is <b>D</b>/<b>D'</b>.</li>
       <li>The ring hugging the front face (the inner row of each surrounding panel) is <b>F</b>. Drag it clockwise for F, counterclockwise for F'.</li>
-      <li>Middle row or column turns the whole cube so you can bring another side to the front. Middle of a side panel, dragged around the ring, spins the cube like a steering wheel (z).</li>
+      <li>4×4 and 5×5: an outer row always turns alone. The <b>SLICE / WIDE</b> block decides what an inner row does. On SLICE it turns just that slice (<b>2R</b>). On WIDE it turns everything from that slice out to the face (<b>Rw</b>). Tap the block to switch.</li>
+      <li>Swipe the cross-arrows pad to turn the whole cube: left/right is <b>y</b>, up/down is <b>x</b>. Swipe the curved-arrows pad right for <b>z</b> (clockwise) and left for <b>z'</b>.</li>
+      <li>3×3 only: the middle row or column can also turn the whole cube (see the setting above).</li>
       <li>The back panel is an x-ray view through the cube from the front, so its top-right sticker sits directly behind the front's top-right. The outer row of each side panel and the back panel give you <b>B</b> moves without rotating.</li>
       <li>Each finger counts separately, so two thumbs can turn at once. The timer starts on your first turn after a scramble; cube rotations don't start it.</li>
     </ul>
@@ -176,8 +183,10 @@ details b{color:var(--ink);font-family:var(--mono);font-weight:500}
 (function(){
 const NS='http://www.w3.org/2000/svg';
 const board=document.getElementById('board');
+let N=3; // cube size
 
-// ---------- cube model: 54 stickers, each with a cubie position p and normal n ----------
+// ---------- cube model ----------
+// Coordinates are doubled so every size stays on integers: a cubie's coordinate runs -(N-1)..(N-1) in steps of 2.
 const FACES={
   U:{n:[0,1,0], r:[1,0,0],  u:[0,0,-1], color:'#f1f1ea'},
   D:{n:[0,-1,0],r:[1,0,0],  u:[0,0,1],  color:'#ffd43b'},
@@ -193,12 +202,12 @@ const mul=(v,k)=>[v[0]*k,v[1]*k,v[2]*k];
 const neg=v=>mul(v,-1);
 const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
 const eq=(a,b)=>a[0]===b[0]&&a[1]===b[1]&&a[2]===b[2];
-const cellPos=(f,row,col)=>add(f.n, mul(f.r,col-1), mul(f.u,1-row));
+const cellPos=(f,row,col)=>add(mul(f.n,N-1), mul(f.r,2*col-(N-1)), mul(f.u,(N-1)-2*row));
 
 function solvedStickers(){
   const out=[];
   for(const k of KEYS){const f=FACES[k];
-    for(let row=0;row<3;row++)for(let col=0;col<3;col++) out.push({p:cellPos(f,row,col),n:f.n.slice(),c:k});
+    for(let row=0;row<N;row++)for(let col=0;col<N;col++) out.push({p:cellPos(f,row,col),n:f.n.slice(),c:k});
   }
   return out;
 }
@@ -211,29 +220,45 @@ function rot(v,axis,dir){
   if(axis===1) return dir>0?[z,y,-x]:[-z,y,x];
   return dir>0?[-y,x,z]:[y,-x,z];
 }
+// a move: {axis, dir, all:true} for a whole-cube turn, or {axis, dir, layers:[coords]}
+const inMove=(m,s)=>m.all||m.layers.includes(s.p[m.axis]);
 function apply(m){
-  for(const s of stickers){
-    if(m.layer==='all'||s.p[m.axis]===m.layer){s.p=rot(s.p,m.axis,m.dir);s.n=rot(s.n,m.axis,m.dir);}
-  }
+  for(const s of stickers) if(inMove(m,s)){s.p=rot(s.p,m.axis,m.dir);s.n=rot(s.n,m.axis,m.dir);}
 }
-const BASE={R:[0,1,-1],L:[0,-1,1],M:[0,0,1],x:[0,'all',-1],U:[1,1,-1],D:[1,-1,1],E:[1,0,1],y:[1,'all',-1],F:[2,1,-1],B:[2,-1,1],S:[2,0,-1],z:[2,'all',-1]};
-function parse(name){const b=BASE[name[0]];return {axis:b[0],layer:b[1],dir:name.endsWith("'")?-b[2]:b[2]};}
+const FACE_AX={R:[0,1],L:[0,-1],U:[1,1],D:[1,-1],F:[2,1],B:[2,-1]}; // axis, side
+// face turn of `width` layers starting `depth` layers in (depth 0 = outer face)
+function faceMove(letter,width=1,depth=0){
+  const [axis,side]=FACE_AX[letter];const layers=[];
+  for(let d=depth;d<depth+width;d++)layers.push(side*(N-1-2*d));
+  return {axis,layers,dir:side>0?-1:1};
+}
 function nameOf(m){
-  for(const [k,[a,l,d]] of Object.entries(BASE)) if(a===m.axis&&l===m.layer) return d===m.dir?k:k+"'";
-  return '?';
+  if(m.all) return 'xyz'[m.axis]+(m.dir===-1?'':"'");
+  if(m.layers.length===1&&m.layers[0]===0){const cw=[1,1,-1][m.axis];return 'MES'[m.axis]+(m.dir===cw?'':"'");}
+  const side=Math.sign(m.layers.find(v=>v!==0));
+  const letter=(side>0?'RUF':'LDB')[m.axis],cw=side>0?-1:1;
+  const depths=m.layers.map(v=>(N-1-Math.abs(v))/2).sort((a,b)=>a-b);
+  let base;
+  if(depths[0]===0) base=depths.length===1?letter:(depths.length===2?letter+'w':depths.length+letter+'w');
+  else if(depths.length===1) base=(depths[0]+1)+letter;
+  else base=(depths[0]+1)+'-'+(depths[depths.length-1]+1)+letter;
+  return base+(m.dir===cw?'':"'");
 }
 const faceOf=n=>KEYS.find(k=>eq(FACES[k].n,n));
+const cellOf=(p,n)=>{const k=faceOf(n),f=FACES[k];return {k,row:((N-1)-dot(p,f.u))/2,col:(dot(p,f.r)+(N-1))/2};};
 function faceColors(){
-  const out={};for(const k of KEYS)out[k]=new Array(9);
-  for(const s of stickers){const k=faceOf(s.n),f=FACES[k];out[k][(1-dot(s.p,f.u))*3+dot(s.p,f.r)+1]=s.c;}
+  const out={};for(const k of KEYS)out[k]=new Array(N*N);
+  for(const s of stickers){const c=cellOf(s.p,s.n);out[c.k][c.row*N+c.col]=s.c;}
   return out;
 }
 function isSolved(){const fc=faceColors();return KEYS.every(k=>fc[k].every(c=>c===fc[k][0]));}
 
 // ---------- board geometry (viewBox units) ----------
 const S=136,W=300,G=10,DP=126,DD=88,BY=558,BS=150;
-let BX=422,XYPAD,ZPAD,layout='xy,z,back';
-const BLOCKW={xy:192,z:192,back:BS};
+let BX=422,XYPAD,ZPAD,WPAD;
+const BLOCKS=['xy','z','back','wide'];
+let layout='xy,z,back,wide';
+const BLOCKW={xy:150,z:150,back:BS,wide:84};
 const QUADS={ // TL, TR, BR, BL in each panel's own up/right orientation
   F:[[S,S],[S+W,S],[S+W,S+W],[S,S+W]],
   U:[[S-DP,S-G-DP],[S+W+DP,S-G-DP],[S+W,S-G],[S,S-G]],
@@ -242,23 +267,36 @@ const QUADS={ // TL, TR, BR, BL in each panel's own up/right orientation
   R:[[S+W+G,S],[S+W+G+DP,S-DP],[S+W+G+DP,S+W+DD],[S+W+G,S+W]],
   B:[[BX,BY],[BX+BS,BY],[BX+BS,BY+BS],[BX,BY+BS]],
 };
-// cell boundaries along [u, v]; side panels give the row touching the front (the F ring) extra room
-const UNI=[0,1/3,2/3,1];
-const BND={F:[UNI,UNI],B:[UNI,UNI],
-  U:[UNI,[0,.26,.56,1]], D:[UNI,[0,.48,.76,1]],
-  L:[[0,.26,.56,1],UNI], R:[[0,.44,.74,1],UNI]};
-const warp=(b,t)=>{const i=Math.min(2,Math.max(0,Math.floor(t*3)));return b[i]+(b[i+1]-b[i])*(t*3-i);};
-const unwarp=(b,x)=>{let i=0;while(i<2&&x>b[i+1])i++;return (i+(x-b[i])/(b[i+1]-b[i]))/3;};
+// Cell boundaries along [u, v]. Side panels shrink rows geometrically away from the front,
+// so the rows touching the front face (the F ring) get the most room.
+let BND={};
+function bounds(ratio,innerFirst){
+  const q=Math.pow(ratio,-1/Math.max(1,N-1));
+  let w=Array.from({length:N},(_,i)=>Math.pow(q,i));
+  if(!innerFirst)w=w.reverse();
+  const tot=w.reduce((a,b)=>a+b,0);const b=[0];let acc=0;
+  for(const x of w){acc+=x/tot;b.push(acc);}
+  b[N]=1;return b;
+}
+function makeBounds(){
+  const uni=Array.from({length:N+1},(_,i)=>i/N);
+  const side=N===2?1.35:1.7, down=N===2?1.5:(N>=4?1.6:2);
+  BND={F:[uni,uni],B:[uni,uni],
+    U:[uni,bounds(side,false)], D:[uni,bounds(down,true)],
+    L:[bounds(side,false),uni], R:[bounds(side,true),uni]};
+}
+const warp=(b,t)=>{const i=Math.min(N-1,Math.max(0,Math.floor(t*N)));return b[i]+(b[i+1]-b[i])*(t*N-i);};
+const unwarp=(b,x)=>{let i=0;while(i<N-1&&x>b[i+1])i++;return (i+(x-b[i])/(b[i+1]-b[i]))/N;};
 const lerp=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];
 const bil=(q,u,v)=>lerp(lerp(q[0],q[1],u),lerp(q[3],q[2],u),v);
 const len=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
-const GAP=13;
 const cells=[]; // {face,row,col,poly,big,center}
 const els={};
 const GEO={};
 let mkParent=board;
 function mk(tag,attrs){const el=document.createElementNS(NS,tag);for(const [a,v] of Object.entries(attrs))el.setAttribute(a,v);mkParent.appendChild(el);return el;}
-let animG;
+function txt(x,y,cls,str,anchor){const t=mk('text',{x,y,class:cls});if(anchor)t.setAttribute('text-anchor',anchor);t.textContent=str;return t;}
+let animG,wideUI;
 const blockG={};let builtPos={};
 const ARR_TOP=BY-24,ARR_H=BS+32; // outline box of each bottom-row block
 function slotPos(order){
@@ -266,26 +304,37 @@ function slotPos(order){
   const pos={};let px=0;for(const k of order){pos[k]=px;px+=BLOCKW[k]+gap;}
   return pos;
 }
+// sticker inset (half the gap) in panel parameters, shrunk on thin cells so they never vanish
+function insetUV(c){
+  const {qw,qh}=GEO[c.k];const [bu,bv]=BND[c.k];
+  const u0=bu[c.col],u1=bu[c.col+1],v0=bv[c.row],v1=bv[c.row+1];
+  const gap=N<=3?6.5:(N===4?5:4);
+  const du=Math.min(gap,(u1-u0)*qw*.2)/qw,dv=Math.min(gap,(v1-v0)*qh*.2)/qh;
+  return [[u0+du,v0+dv],[u1-du,v0+dv],[u1-du,v1-dv],[u0+du,v1-dv]];
+}
+const toScr=(k,uv)=>bil(QUADS[k],uv[0],uv[1]);
+const ptsStr=pts=>pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+const strokeW=()=>N<=3?5:(N===4?3.5:2.5);
+
 function buildBoard(){
 board.replaceChildren();cells.length=0;mkParent=board;
-// lay out the bottom row (cross pad, curve pad, back preview) in the chosen order
+makeBounds();
 const pos=slotPos(layout.split(','));builtPos=pos;
 BX=pos.back;
 XYPAD={x:pos.xy+1,y:BY-6,w:BLOCKW.xy-2,h:BS+5};
 ZPAD={x:pos.z+1,y:BY-6,w:BLOCKW.z-2,h:BS+5};
+WPAD={x:pos.wide+1,y:BY-6,w:BLOCKW.wide-2,h:BS+5};
 QUADS.B=[[BX,BY],[BX+BS,BY],[BX+BS,BY+BS],[BX,BY+BS]];
 mk('defs',{}).innerHTML='<marker id="ah" viewBox="0 0 10 10" refX="4" refY="5" markerWidth="3.4" markerHeight="3.4" orient="auto-start-reverse"><path class="ah" d="M0,0 L10,5 L0,10 z"/></marker>';
 const cubeG=mk('g',{class:'cubeg'});
-for(const b of ['xy','z','back']){
+for(const b of BLOCKS){
   mkParent=board;blockG[b]=mk('g',{class:'blk'});
   mkParent=blockG[b];mk('rect',{x:pos[b]-5,y:ARR_TOP,width:BLOCKW[b]+10,height:ARR_H,rx:18,class:'arr-outline'});
 }
-mkParent=blockG.xy;mk('rect',{x:XYPAD.x,y:XYPAD.y,width:XYPAD.w,height:XYPAD.h,rx:16,class:'pad'});
-mkParent=blockG.z;mk('rect',{x:ZPAD.x,y:ZPAD.y,width:ZPAD.w,height:ZPAD.h,rx:16,class:'pad'});
+for(const [b,p] of [['xy',XYPAD],['z',ZPAD],['wide',WPAD]]){mkParent=blockG[b];mk('rect',{x:p.x,y:p.y,width:p.w,height:p.h,rx:16,class:'pad'});}
 mkParent=blockG.xy;
 { // cross arrows: x / y
   const cx=XYPAD.x+XYPAD.w/2, cy=XYPAD.y+66, r=36;
-  mk('path',{d:`M${cx-r},${cy} H${cx+r} M${cx},${cy-r} V${cy+r}`,class:'ico'});
   for(const [x1,y1,x2,y2] of [[cx-r,cy,cx+r,cy],[cx,cy-r,cx,cy+r]])
     mk('line',{x1,y1,x2,y2,class:'ico','marker-start':'url(#ah)','marker-end':'url(#ah)'});
   txt(cx,BY+132,'hint','x  y','middle');
@@ -295,26 +344,27 @@ mkParent=blockG.z;
   const cx=ZPAD.x+ZPAD.w/2, cy=ZPAD.y+78;
   mk('path',{d:`M${cx+6},${cy-40} A40 40 0 0 1 ${cx+40},${cy+2}`,class:'ico','marker-end':'url(#ah)'});
   mk('path',{d:`M${cx-6},${cy-40} A40 40 0 0 0 ${cx-40},${cy+2}`,class:'ico','marker-end':'url(#ah)'});
-  txt(cx-48,BY+132,'hint',"z'",'middle');
-  txt(cx+48,BY+132,'hint','z','middle');
+  txt(cx-46,BY+132,'hint',"z'",'middle');
+  txt(cx+46,BY+132,'hint','z','middle');
+}
+mkParent=blockG.wide;
+{ // slice / wide toggle
+  const x=WPAD.x+7,w=WPAD.w-14,cx=WPAD.x+WPAD.w/2;
+  wideUI={
+    slice:[mk('rect',{x,y:BY+4,width:w,height:64,rx:10,class:'opt'}),txt(cx,BY+41,'optt','SLICE','middle')],
+    wide:[mk('rect',{x,y:BY+76,width:w,height:64,rx:10,class:'opt'}),txt(cx,BY+113,'optt','WIDE','middle')],
+  };
 }
 for(const k of KEYS){
   mkParent=k==='B'?blockG.back:cubeG;
   const q=QUADS[k];
-  const qw=(len(q[0],q[1])+len(q[3],q[2]))/2, qh=(len(q[0],q[3])+len(q[1],q[2]))/2;
-  const du=GAP/2/qw, dv=GAP/2/qh;
-  GEO[k]={du,dv};
+  GEO[k]={qw:(len(q[0],q[1])+len(q[3],q[2]))/2,qh:(len(q[0],q[3])+len(q[1],q[2]))/2};
   els[k]=[];
-  for(let row=0;row<3;row++)for(let col=0;col<3;col++){
-    const [bu,bv]=BND[k];
+  const [bu,bv]=BND[k];
+  for(let row=0;row<N;row++)for(let col=0;col<N;col++){
     const u0=bu[col],u1=bu[col+1],v0=bv[row],v1=bv[row+1];
     const full=[bil(q,u0,v0),bil(q,u1,v0),bil(q,u1,v1),bil(q,u0,v1)];
-    const ins=[bil(q,u0+du,v0+dv),bil(q,u1-du,v0+dv),bil(q,u1-du,v1-dv),bil(q,u0+du,v1-dv)];
-    const el=document.createElementNS(NS,'polygon');
-    el.setAttribute('points',ins.map(p=>p.map(n=>n.toFixed(1)).join(',')).join(' '));
-    el.setAttribute('class','st');
-    el.setAttribute('stroke-width','5');el.setAttribute('stroke-linejoin','round');
-    mkParent.appendChild(el);
+    const el=mk('polygon',{points:ptsStr(insetUV({k,row,col}).map(uv=>toScr(k,uv))),class:'st','stroke-width':strokeW(),'stroke-linejoin':'round'});
     els[k].push(el);
     const center=bil(q,(u0+u1)/2,(v0+v1)/2);
     const big=full.map(p=>lerp(center,p,1.22));
@@ -324,12 +374,10 @@ for(const k of KEYS){
 mkParent=blockG.back;txt(BX,BY-10,'lbl','BACK');
 mkParent=board;animG=mk('g',{});
 }
-function txt(x,y,cls,str,anchor){const t=document.createElementNS(NS,'text');t.setAttribute('x',x);t.setAttribute('y',y);t.setAttribute('class',cls);if(anchor)t.setAttribute('text-anchor',anchor);t.textContent=str;mkParent.appendChild(t);return t;}
 const lastEl=document.getElementById('last');
-const LAYOUTS=['xy,z,back','xy,back,z','z,xy,back','z,back,xy','back,xy,z','back,z,xy'];
-buildBoard();
+const validLayout=L=>typeof L==='string'&&L.split(',').sort().join()===BLOCKS.slice().sort().join();
 
-// ---------- rearrange mode: drag the three bottom blocks to swap them ----------
+// ---------- rearrange mode: drag the bottom blocks to swap them ----------
 let arranging=false,arrOrder=null,drag=null;
 function placeBlocks(except){
   const pos=slotPos(arrOrder);
@@ -372,16 +420,12 @@ function arrUp(e){
 const SPEEDS={off:0,fast:70,normal:115,slow:220};
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
 let animSpeed=reduced?'off':'normal';
-const cellOf=(p,n)=>{const k=faceOf(n),f=FACES[k];return {k,row:1-dot(p,f.u),col:dot(p,f.r)+1};};
-const COFF=[[-1,1],[1,1],[1,-1],[-1,-1]]; // TL TR BR BL in (right, up) half-units
-const corner3=(c,i)=>{const f=FACES[c.k];return add(mul(f.n,3),mul(f.r,2*(c.col-1)+COFF[i][0]),mul(f.u,2*(1-c.row)+COFF[i][1]));};
-const insetUV=c=>{const {du,dv}=GEO[c.k];const [bu,bv]=BND[c.k];const u0=bu[c.col],u1=bu[c.col+1],v0=bv[c.row],v1=bv[c.row+1];return [[u0+du,v0+dv],[u1-du,v0+dv],[u1-du,v1-dv],[u0+du,v1-dv]];};
-const toScr=(k,uv)=>bil(QUADS[k],uv[0],uv[1]);
-const ptsStr=pts=>pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+const COFF=[[-1,1],[1,1],[1,-1],[-1,-1]]; // TL TR BR BL in (right, up) units
+const corner3=(c,i)=>{const f=FACES[c.k];return add(mul(f.n,N),mul(f.r,2*c.col-(N-1)+COFF[i][0]),mul(f.u,(N-1)-2*c.row+COFF[i][1]));};
 function planMove(m){
   const plan=[];
   for(const s of stickers){
-    if(!(m.layer==='all'||s.p[m.axis]===m.layer))continue;
+    if(!inMove(m,s))continue;
     const src=cellOf(s.p,s.n),dst=cellOf(rot(s.p,m.axis,m.dir),rot(s.n,m.axis,m.dir));
     const map=[0,1,2,3].map(i=>{const q=rot(corner3(src,i),m.axis,m.dir);return [0,1,2,3].find(j=>eq(corner3(dst,j),q));});
     plan.push({src,dst,map,c:s.c});
@@ -395,14 +439,14 @@ function stopAnim(){
   for(const el of anim.hidden)el.style.visibility='';
   anim=null;
 }
-function mkPoly(color){const el=document.createElementNS(NS,'polygon');el.setAttribute('fill',color);el.setAttribute('stroke',color);el.setAttribute('stroke-width','5');el.setAttribute('stroke-linejoin','round');animG.appendChild(el);return el;}
+function mkPoly(color){const el=document.createElementNS(NS,'polygon');el.setAttribute('fill',color);el.setAttribute('stroke',color);el.setAttribute('stroke-width',strokeW());el.setAttribute('stroke-linejoin','round');animG.appendChild(el);return el;}
 function runAnim(plan){
   stopAnim();
   const DUR=SPEEDS[animSpeed]||0;
   if(!DUR||!plan.length)return;
   const hidden=[],items=[];
   for(const it of plan){
-    const el=els[it.src.k][it.src.row*3+it.src.col];el.style.visibility='hidden';hidden.push(el);
+    const el=els[it.src.k][it.src.row*N+it.src.col];el.style.visibility='hidden';hidden.push(el);
     const color=FACES[it.c].color;
     const A=insetUV(it.src).map(uv=>toScr(it.src.k,uv));
     const Bp=insetUV(it.dst).map(uv=>toScr(it.dst.k,uv));
@@ -438,13 +482,13 @@ function runAnim(plan){
 
 function render(){
   const fc=faceColors();
-  for(const k of KEYS) for(let i=0;i<9;i++){const c=FACES[fc[k][i]].color;els[k][i].setAttribute('fill',c);els[k][i].setAttribute('stroke',c);}
+  for(const k of KEYS) for(let i=0;i<N*N;i++){const c=FACES[fc[k][i]].color;els[k][i].setAttribute('fill',c);els[k][i].setAttribute('stroke',c);}
 }
 
 // ---------- state ----------
 let phase='free'; // free | ready | running | done
-let startT=0, endT=0, moves=0, best=null, history=[], scrambleText='';
-let mode='rotate', dbl=false;
+let startT=0, endT=0, moves=0, best={}, history=[], scrambleText='';
+let mode='rotate', dbl=false, wide=false;
 const $=id=>document.getElementById(id);
 const fmt=ms=>{const cs=Math.floor(ms/10),m=Math.floor(cs/6000),s=Math.floor(cs/100)%60,c=cs%100;return m+':'+String(s).padStart(2,'0')+'.'+String(c).padStart(2,'0');};
 
@@ -454,23 +498,34 @@ function updateHud(){
   $('time').classList.toggle('done',phase==='done');
   $('phase').textContent={free:'Free play',ready:'Scrambled, timer starts on first turn',running:'Solving',done:'Solved'}[phase];
   $('moves').textContent=moves;
-  $('best').textContent=best==null?'–':fmt(best);
+  $('size').textContent=N+'×'+N;
+  $('best').textContent=best[N]==null?'–':fmt(best[N]);
   $('scr').textContent=scrambleText;
-  const cur={anim:animSpeed,mode};
+  const cur={anim:animSpeed,mode,size:String(N)};
   document.querySelectorAll('[data-k]').forEach(b=>b.setAttribute('aria-pressed',cur[b.dataset.k]===b.dataset.v));
   $('dbl').checked=dbl;
+  for(const [key,on] of [['slice',!wide],['wide',wide]])for(const el of wideUI[key])el.classList.toggle('on',on);
+  blockG.wide.classList.toggle('off',N<4);
 }
 function tick(){if(phase!=='running')return;updateHud();requestAnimationFrame(tick);}
 
 function save(){
   try{localStorage.setItem('swipecube',JSON.stringify(snapshot()));}catch(e){}
 }
-function snapshot(){return {stickers,phase,startT:phase==='running'?Date.now()-(performance.now()-startT):0,elapsed:endT-startT,moves,best,history,scrambleText,mode,dbl,animSpeed,layout};}
+function snapshot(){return {N,stickers,phase,startT:phase==='running'?Date.now()-(performance.now()-startT):0,elapsed:endT-startT,moves,best,history,scrambleText,mode,dbl,wide,animSpeed,layout};}
 function restore(d){
-  if(!d||!Array.isArray(d.stickers)||d.stickers.length!==54)return;
-  stickers=d.stickers;phase=d.phase||'free';moves=d.moves||0;best=d.best??null;history=d.history||[];
-  scrambleText=d.scrambleText||'';mode=d.mode||'rotate';dbl=!!d.dbl;if(SPEEDS[d.animSpeed]!==undefined)animSpeed=d.animSpeed;
-  if(LAYOUTS.includes(d.layout)&&d.layout!==layout){layout=d.layout;buildBoard();}
+  if(!d||!Array.isArray(d.stickers))return;
+  const n=d.N||3;if(d.stickers.length!==6*n*n)return;
+  N=n;
+  const legacy=!d.N; // saved before sizes existed: single-layer moves, undoubled coordinates already match 3x3
+  stickers=legacy?d.stickers.map(s=>({p:mul(s.p,2),n:s.n,c:s.c})):d.stickers;
+  phase=d.phase||'free';moves=d.moves||0;
+  best=typeof d.best==='number'?{3:d.best}:(d.best||{});
+  history=legacy?[]:(d.history||[]);
+  scrambleText=d.scrambleText||'';mode=d.mode||'rotate';dbl=!!d.dbl;wide=!!d.wide;
+  if(SPEEDS[d.animSpeed]!==undefined)animSpeed=d.animSpeed;
+  if(validLayout(d.layout))layout=d.layout;
+  else if(typeof d.layout==='string'&&validLayout(d.layout+',wide'))layout=d.layout+',wide';
   if(phase==='running'){startT=performance.now()-(Date.now()-d.startT);requestAnimationFrame(tick);}
   if(phase==='done'){startT=0;endT=d.elapsed||0;}
 }
@@ -480,14 +535,14 @@ function doMove(m,{record=true}={}){
   const plan=planMove(m);
   apply(m);
   if(record)history.push(m);
-  const isRot=m.layer==='all';
-  if(!isRot)moves++;
-  if(phase==='ready'&&!isRot){phase='running';startT=performance.now();requestAnimationFrame(tick);}
-  if(phase==='running'&&isSolved()){phase='done';endT=performance.now();const t=endT-startT;if(best==null||t<best)best=t;}
+  if(!m.all)moves++;
+  if(phase==='ready'&&!m.all){phase='running';startT=performance.now();requestAnimationFrame(tick);}
+  if(phase==='running'&&isSolved()){phase='done';endT=performance.now();const t=endT-startT;if(best[N]==null||t<best[N])best[N]=t;}
   render();runAnim(plan);updateHud();save();
   try{navigator.vibrate&&navigator.vibrate(6);}catch(e){}
 }
 function showLast(str){lastEl.textContent=str;}
+function setWide(v){wide=v;updateHud();save();try{navigator.vibrate&&navigator.vibrate(4);}catch(e){}}
 
 // ---------- gestures ----------
 function toSvg(e){const p=board.createSVGPoint();p.x=e.clientX;p.y=e.clientY;const r=p.matrixTransform(board.getScreenCTM().inverse());return [r.x,r.y];}
@@ -495,17 +550,18 @@ function inPoly(pt,poly){let ins=false;for(let i=0,j=poly.length-1;i<poly.length
 function hitTest(pt){
   for(const c of cells) if(inPoly(pt,c.poly)) return c;
   for(const c of cells) if(inPoly(pt,c.big)) return c; // forgive the gaps between panels
-  return null; // empty space: whole-cube turn
+  return null;
 }
+const inR=(p,r)=>p[0]>=r.x&&p[0]<=r.x+r.w&&p[1]>=r.y&&p[1]<=r.y+r.h;
 const ptrs=new Map();
 document.addEventListener('pointerdown',e=>{
   if(e.button>0||e.target.closest('button,input,label,.sheet'))return;
   if(arranging){e.preventDefault();arrDown(e);return;}
   const pt=board.contains(e.target)?toSvg(e):null;
-  const c=pt?hitTest(pt):null;
-  const inR=(p,r)=>p[0]>=r.x&&p[0]<=r.x+r.w&&p[1]>=r.y&&p[1]<=r.y+r.h;
-  const zone=(!c&&pt)?(inR(pt,ZPAD)?'z':inR(pt,XYPAD)?'xy':null):null;
   e.preventDefault();
+  if(pt&&inR(pt,WPAD)){if(N>=4)setWide(!wide);return;} // tap the toggle
+  const c=pt?hitTest(pt):null;
+  const zone=(!c&&pt)?(inR(pt,ZPAD)?'z':inR(pt,XYPAD)?'xy':null):null;
   if(!c&&!zone)return; // empty space does nothing
   ptrs.set(e.pointerId,{c,zone,x:e.clientX,y:e.clientY,move:null,dir:null,count:0});
 });
@@ -523,74 +579,94 @@ document.addEventListener('pointermove',e=>{
       const d3=horiz?(dx>0?f.r:neg(f.r)):(dy<0?f.u:neg(f.u));
       const p=cellPos(f,t.c.row,t.c.col);
       const a=cross(f.n,d3);
-      const axis=a.findIndex(v=>v!==0);
-      let layer=p[axis];
-      if(layer===0&&mode==='rotate')layer='all';
-      m={axis,layer,dir:Math.sign(a[axis])};
+      const axis=a.findIndex(v=>v!==0),turn=Math.sign(a[axis]);
+      const v=p[axis];
+      if(N===3&&v===0&&mode==='rotate') m={axis,all:true,dir:turn};
+      else if(wide&&N>=4&&v!==0){
+        // everything from the grabbed slice out to its face
+        const s=Math.sign(v),layers=[];
+        for(let x=v;Math.abs(x)<=N-1;x+=2*s)layers.push(x);
+        m={axis,layers,dir:turn};
+      }else m={axis,layers:[v],dir:turn};
     }else if(t.zone==='z'){
       if(!horiz)return; // z pad only listens left/right
-      m={axis:2,layer:'all',dir:dx>0?-1:1}; // right = z (clockwise), left = z'
+      m={axis:2,all:true,dir:dx>0?-1:1}; // right = z (clockwise), left = z'
     }else{
       // swipe right = y', left = y; up = x, down = x'
-      m=horiz?{axis:1,layer:'all',dir:dx>0?1:-1}:{axis:0,layer:'all',dir:dy<0?-1:1};
+      m=horiz?{axis:1,all:true,dir:dx>0?1:-1}:{axis:0,all:true,dir:dy<0?-1:1};
     }
     t.move=m;t.dir=dir;t.x=e.clientX;t.y=e.clientY;t.count=1;
     doMove(m);showLast(nameOf(m));
   }else if(dbl&&t.count===1){
     const proj=dx*t.dir[0]+dy*t.dir[1];
-    const cellPx=board.getBoundingClientRect().width*(W/3)/572;
-    if(proj>cellPx*1.1){doMove(t.move);t.count=2;const n=nameOf(t.move);showLast(n.replace("'","")+'2');}
+    const cellPx=board.getBoundingClientRect().width*(W/N)/572;
+    if(proj>cellPx*1.1){doMove(t.move);t.count=2;showLast(nameOf(t.move).replace("'","")+'2');}
   }
 });
 const end=e=>{ptrs.delete(e.pointerId);if(arranging)arrUp(e);};
-$('btnArrange').onclick=enterArrange;
-$('arrDone').onclick=exitArrange;
 document.addEventListener('pointerup',end);
 document.addEventListener('pointercancel',end);
-$('btnHelp').onclick=()=>{$('sheet').hidden=false;};
-$('btnClose').onclick=()=>{$('sheet').hidden=true;};
 board.addEventListener('contextmenu',e=>e.preventDefault());
 
 // ---------- controls ----------
 function scramble(){
   stickers=solvedStickers();
-  const faces=['R','L','U','D','F','B'],axisOf={R:0,L:0,U:1,D:1,F:2,B:2};
-  const seq=[];let last=-1;
-  while(seq.length<22){const f=faces[Math.floor(Math.random()*6)];if(axisOf[f]===last)continue;last=axisOf[f];
-    const v=Math.floor(Math.random()*3);seq.push(f+['',"'",'2'][v]);}
-  for(const s of seq){const m=parse(s[0]);if(s.endsWith("'"))m.dir=-m.dir;apply(m);if(s.endsWith('2'))apply(m);}
+  const len={2:11,3:22,4:40,5:60}[N]||22;
+  const maxW=Math.floor(N/2); // widest turn used: 1 on 2x2/3x3, 2 on 4x4/5x5
+  const letters=['R','L','U','D','F','B'];
+  const seq=[];let lastAxis=-1;
+  while(seq.length<len){
+    const L=letters[Math.floor(Math.random()*6)];const axis=FACE_AX[L][0];
+    if(axis===lastAxis)continue;lastAxis=axis;
+    const w=1+Math.floor(Math.random()*maxW);
+    const m=faceMove(L,w),v=Math.floor(Math.random()*3);
+    if(v===1)m.dir=-m.dir;
+    apply(m);if(v===2)apply(m);
+    seq.push(nameOf(m).replace("'","")+['',"'",'2'][v]);
+  }
   scrambleText=seq.join(' ');
   phase='ready';moves=0;history=[];startT=endT=0;showLast('');
   render();updateHud();save();
 }
+function resetCube(){stopAnim();stickers=solvedStickers();phase='free';moves=0;history=[];scrambleText='';startT=endT=0;showLast('');render();updateHud();save();}
 $('btnScramble').onclick=scramble;
 $('btnUndo').onclick=()=>{
   const m=history.pop();if(!m)return;
-  doMove({axis:m.axis,layer:m.layer,dir:-m.dir},{record:false});
+  doMove(Object.assign({},m,{dir:-m.dir}),{record:false});
   showLast('undo');
 };
-$('btnReset').onclick=()=>{stickers=solvedStickers();phase='free';moves=0;history=[];scrambleText='';startT=endT=0;showLast('');render();updateHud();save();};
+$('btnReset').onclick=resetCube;
+$('btnArrange').onclick=enterArrange;
+$('arrDone').onclick=exitArrange;
+$('btnHelp').onclick=()=>{$('sheet').hidden=false;};
+$('btnClose').onclick=()=>{$('sheet').hidden=true;};
 document.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{
-  if(b.dataset.k==='anim')animSpeed=b.dataset.v;else mode=b.dataset.v;
+  const k=b.dataset.k,v=b.dataset.v;
+  if(k==='anim')animSpeed=v;
+  else if(k==='mode')mode=v;
+  else if(k==='size'&&+v!==N){N=+v;buildBoard();resetCube();return;}
   updateHud();save();
 });
 $('dbl').onchange=e=>{dbl=e.target.checked;save();};
 
-// desktop testing: standard keys (shift = prime)
+// desktop testing: standard keys (shift = prime), W toggles slice/wide
 document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT'||e.ctrlKey||e.metaKey)return;
   const k=e.key.toUpperCase();
-  if(e.target.tagName==='INPUT')return;
-  const map={R:'R',L:'L',U:'U',D:'D',F:'F',B:'B',X:'x',Y:'y',Z:'z',M:'M',E:'E',S:'S'};
-  if(!map[k]||e.ctrlKey||e.metaKey)return;
-  const m=parse(map[k]);if(e.shiftKey)m.dir=-m.dir;doMove(m);showLast(nameOf(m));
+  if(k==='W'){if(N>=4)setWide(!wide);return;}
+  let m=null;
+  if(FACE_AX[k])m=faceMove(k);
+  else if('XYZ'.includes(k)&&k.length===1)m={axis:'XYZ'.indexOf(k),all:true,dir:-1};
+  else if('MES'.includes(k)&&k.length===1&&N%2===1){const axis='MES'.indexOf(k);m={axis,layers:[0],dir:[1,1,-1][axis]};}
+  if(!m)return;
+  if(e.shiftKey)m.dir=-m.dir;doMove(m);showLast(nameOf(m));
 });
 
-function start(d){
-  if(d&&d.stickers)restore(d);
-  else{try{restore(JSON.parse(localStorage.getItem('swipecube')||'null'));}catch(e){}}
-  render();updateHud();
+function start(){
+  try{restore(JSON.parse(localStorage.getItem('swipecube')||'null'));}catch(e){}
+  buildBoard();render();updateHud();
 }
-start({});
+start();
 })();
 </script>
 </body>
