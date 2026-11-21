@@ -43,7 +43,7 @@ header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
 .faces{flex:1;min-height:0;display:flex;flex-wrap:wrap;gap:6px 24px;justify-content:center;align-content:center}
 .face{display:flex;flex-direction:column;align-items:center;gap:2px}
 .face .cap{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
-.face svg{width:min(calc(100vw - 32px), calc((100dvh - 215px) / 2), 340px);height:auto;display:block;touch-action:none;-webkit-touch-callout:none}
+.face svg{width:min(calc(100vw - 32px), calc((100vh - 215px) / 2), 340px);width:min(calc(100vw - 32px), calc((100dvh - 215px) / 2), 340px);height:auto;display:block;touch-action:none;-webkit-touch-callout:none}
 @media (min-width:700px) and (min-aspect-ratio:1/1){.face svg{width:min(340px, calc(100dvh - 210px))}}
 .controls{display:flex;gap:8px;flex-wrap:wrap}
 button{
