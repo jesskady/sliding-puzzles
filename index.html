@@ -324,11 +324,12 @@ const builders = {
       palette = ['#f2412f', '#2f45d8', '#5fe07d', '#ff8088', '#ffd23a', '#43b5f2', '#f7dce8'];
       colorOf = m => ({ '0': 0, '1': 1, '2': 2, '01': 3, '02': 4, '12': 5 })[m.join('')] ?? 6;
     } else if (kind === 4) {
-      // 2×2: purple, peach / violet, sky blue; pairwise overlaps get their own
-      // colors and the middle, where three or four disks meet, is pale lavender.
+      // 2×2: red, peach / violet, sky blue; pairwise overlaps get their own
+      // colors (red+peach orange, red+violet magenta, peach+blue teal,
+      // violet+blue navy) and the middle, where three or four meet, is pale lavender.
       const D = 110; r = D / 1.15;
       centers = [[0, 0], [D, 0], [0, D], [D, D]]; // TL TR BL BR
-      palette = ['#a22aa8', '#f3b46c', '#6a3fd0', '#3fa3f0', '#ef4b8c', '#e66ad0', '#3fcfa2', '#2c33b8', '#ece2f6'];
+      palette = ['#e23b3b', '#f3b46c', '#6a3fd0', '#3fa3f0', '#f57c1f', '#d9409e', '#3fcfa2', '#2c33b8', '#ece2f6'];
       colorOf = m => m.length === 1 ? m[0] : (({ '01': 4, '02': 5, '13': 6, '23': 7 })[m.join('')] ?? 8);
     } else {
       // Six disks around a center, each passing through it. Where a disk is
@@ -344,14 +345,14 @@ const builders = {
       return (tri ? (2 * di + dj) ** 2 + 3 * dj * dj : 4 * (di * di + dj * dj)) <= r4;
     };
     const key = (i, j) => (i + 4096) * 8192 + (j + 4096);
-    const pts = [], colors = [], index = new Map();
+    const pts = [], colors = [], masks = [], index = new Map();
     const ci = centers.map(c => c[0]), cj = centers.map(c => c[1]), span = Math.ceil(2 * r) + 2;
     for (let j = Math.min(...cj) - span; j <= Math.max(...cj) + span; j++)
       for (let i = Math.min(...ci) - 2 * span; i <= Math.max(...ci) + 2 * span; i++) {
         const m = centers.flatMap((c, k) => inDisk(i, j, c) ? [k] : []);
         if (!m.length) continue;
         index.set(key(i, j), pts.length);
-        pts.push([i, j]); colors.push(colorOf(m));
+        pts.push([i, j]); colors.push(colorOf(m)); masks.push(m.reduce((s, k) => s | (1 << k), 0));
       }
     // one clockwise step for each disk, as [from, to] index pairs
     const perms = centers.map(c => {
@@ -364,6 +365,38 @@ const builders = {
       });
       return Int32Array.from(pairs);
     });
+    // Pieces: points that always move together. Start from "which disks cover
+    // this point" and keep splitting groups until every turn maps whole groups
+    // onto whole groups. What's left are the physical pieces, whose borders
+    // are the grooves drawn on the puzzle.
+    const N = pts.length, fwd = [], back = [];
+    perms.forEach(perm => {
+      const f = new Int32Array(N).fill(-1), b = new Int32Array(N).fill(-1);
+      for (let q = 0; q < perm.length; q += 2) { f[perm[q]] = perm[q + 1]; b[perm[q + 1]] = perm[q]; }
+      fwd.push(f); back.push(b);
+    });
+    let label = Int32Array.from(masks), count = new Set(masks).size;
+    for (let it = 0; it < 500; it++) {
+      const ids = new Map(), next = new Int32Array(N);
+      for (let p = 0; p < N; p++) {
+        let sig = label[p] + ':';
+        for (let d = 0; d < fwd.length; d++) sig += fwd[d][p] < 0 ? '-,' : label[fwd[d][p]] + '.' + label[back[d][p]] + ',';
+        let id = ids.get(sig);
+        if (id === undefined) { id = ids.size; ids.set(sig, id); }
+        next[p] = id;
+      }
+      label = next;
+      if (ids.size === count) break;
+      count = ids.size;
+    }
+    const pieceColor = new Uint8Array(count), size = new Int32Array(count);
+    label.forEach((id, p) => { pieceColor[id] = colors[p]; size[id]++; });
+    // Points lying exactly on a circle's edge (like the 6-circle flower's
+    // center) come out as specks; they're part of a groove, not real pieces.
+    const tiny = size.map(s => (s < N / count / 50 ? 1 : 0));
+    // lattice neighbors (right, and the one or two below) for drawing grooves
+    const nbr = pts.map(([i, j]) => (tri ? [[i + 1, j], [i, j + 1], [i - 1, j + 1]] : [[i + 1, j], [i, j + 1]])
+      .map(([a, b]) => index.get(key(a, b)) ?? -1));
     // Offscreen image: one pixel per point on the square lattice; on the
     // triangular lattice each point is two half-width pixels so rows can
     // offset by half a point.
@@ -381,7 +414,8 @@ const builders = {
       twist: {
         tri, r, step: tri ? 60 : 90, perms, pix, img, pts,
         centers: centers.map(([i, j]) => (tri ? [i + j / 2, j * S3] : [i, j])),
-        palette: palette.map(hex), solved: Uint8Array.from(colors),
+        palette: palette.map(hex), solved: label, solvedColor: Uint8Array.from(colors), pieceColor,
+        pieces: count, tiny, nbr: Int32Array.from(nbr.flat()), nbrN: tri ? 3 : 2,
       },
     };
   },
@@ -428,7 +462,10 @@ const atHome = (tile, idx) => board.rings
   : idx === tile - 1;
 
 function isSolved() {
-  if (board.twist) return state.every((c, i) => c === board.twist.solved[i]);
+  if (board.twist) {
+    const T = board.twist;
+    return state.every((id, i) => T.tiny[id] || T.tiny[T.solved[i]] || T.pieceColor[id] === T.solvedColor[i]);
+  }
   if (board.rings) return state.every((t, i) => atHome(t, i));
   return state.every((t, i) => (i === state.length - 1 ? t === 0 : t === i + 1));
 }
@@ -596,9 +633,14 @@ function sizeTwist() {
 }
 
 function renderTwist() {
-  const T = board.twist, colors = peeking ? T.solved : state, data = twImg.data;
-  for (let p = 0; p < colors.length; p++) {
-    const [r, g, b] = T.palette[colors[p]];
+  const T = board.twist, ids = peeking ? T.solved : state, data = twImg.data, nn = T.nbrN;
+  for (let p = 0; p < ids.length; p++) {
+    let [r, g, b] = T.palette[T.pieceColor[ids[p]]];
+    // a groove wherever this point and a neighbor belong to different pieces
+    for (let k = 0; k < nn; k++) {
+      const q = T.nbr[p * nn + k];
+      if (T.tiny[ids[p]] || (q >= 0 && ids[q] !== ids[p] && !T.tiny[ids[q]])) { r = r * 0.45 + 18; g = g * 0.45 + 18; b = b * 0.45 + 24; break; }
+    }
     for (let k = 0, o = T.pix[p] * 4; k < (T.tri ? 2 : 1); k++, o += 4) { data[o] = r; data[o + 1] = g; data[o + 2] = b; data[o + 3] = 255; }
   }
   twOff.getContext('2d').putImageData(twImg, 0, 0);
