@@ -336,11 +336,13 @@ const builders = {
       // outer end is a colored oval: the lens inside both the disk and a
       // same-size circle centered twice as far out (one of the grooves).
       // Neighboring ovals touch at the rim; everything else is white.
+      // A seventh disk in the middle passes through all six outer centers
+      // (its edge is already one of the grooves) and turns the white star.
       const R = 72; r = R;
-      centers = [[R, 0], [0, R], [-R, R], [-R, 0], [0, -R], [R, -R]]; // yellow, green, blue, purple, red, orange
+      centers = [[R, 0], [0, R], [-R, R], [-R, 0], [0, -R], [R, -R], [0, 0]]; // yellow, green, blue, purple, red, orange, middle
       palette = ['#f6cc2e', '#1fa37a', '#2f6fe4', '#7a3fc4', '#e2343a', '#f26a2e', '#f4f1f8'];
       colorOf = (m, i, j) => {
-        const k = centers.findIndex(([a, b]) => inDisk(i, j, [a, b]) && inDisk(i, j, [2 * a, 2 * b]));
+        const k = centers.slice(0, 6).findIndex(([a, b]) => inDisk(i, j, [a, b]) && inDisk(i, j, [2 * a, 2 * b]));
         return k < 0 ? 6 : k;
       };
     }
@@ -670,7 +672,7 @@ function renderTwist() {
   // faint outline of each turning disk
   ctx.lineWidth = T.r * 0.012; ctx.strokeStyle = 'rgba(0,0,0,.28)';
   T.centers.forEach(c => { ctx.beginPath(); circle(c); ctx.stroke(); });
-  if (twDrag) {
+  if (twDrag && twDrag.disk !== null) {
     ctx.lineWidth = T.r * 0.03; ctx.strokeStyle = 'rgba(255,255,255,.8)';
     ctx.beginPath(); circle(T.centers[twDrag.disk]); ctx.stroke();
   }
@@ -680,27 +682,54 @@ function renderTwist() {
 }
 
 // Drag a disk around its center: it follows your finger, then snaps to the
-// nearest step when you let go. Where disks overlap, the touch picks the disk
-// whose center is closest.
+// nearest step when you let go. A touch covered by only one disk turns that
+// disk. In an overlap, the first bit of movement decides: the disk whose
+// turning direction at that spot best matches your drag wins.
 function twPoint(ev) {
   const rect = twCanvas.getBoundingClientRect(), { K, tx, ty, dpr } = twView;
   return [((ev.clientX - rect.left) * dpr - tx) / K, ((ev.clientY - rect.top) * dpr - ty) / K];
 }
+function twStart(d, p) {
+  const c = board.twist.centers[d];
+  twDrag.disk = d; twDrag.last = Math.atan2(p[1] - c[1], p[0] - c[0]);
+}
 twCanvas.addEventListener('pointerdown', ev => {
   if (!board.twist || twDrag) return;
   const T = board.twist, p = twPoint(ev);
-  let best = -1, bestD = Infinity;
-  T.centers.forEach((c, i) => { const d = Math.hypot(p[0] - c[0], p[1] - c[1]); if (d <= T.r && d < bestD) { best = i; bestD = d; } });
-  if (best < 0) return;
+  const cands = T.centers.flatMap((c, i) => (Math.hypot(p[0] - c[0], p[1] - c[1]) <= T.r ? [i] : []));
+  if (!cands.length) return;
   ev.preventDefault();
   try { twCanvas.setPointerCapture(ev.pointerId); } catch (e) {}
-  const c = T.centers[best];
-  twDrag = { id: ev.pointerId, disk: best, angle: 0, last: Math.atan2(p[1] - c[1], p[0] - c[0]) };
+  twDrag = { id: ev.pointerId, disk: null, cands, start: p, angle: 0 };
+  if (cands.length === 1) twStart(cands[0], p);
   render();
 });
 twCanvas.addEventListener('pointermove', ev => {
   if (!twDrag || ev.pointerId !== twDrag.id || twDrag.snapping) return;
-  const c = board.twist.centers[twDrag.disk], p = twPoint(ev);
+  const T = board.twist, p = twPoint(ev);
+  if (twDrag.disk === null) {
+    const dx = p[0] - twDrag.start[0], dy = p[1] - twDrag.start[1], m = Math.hypot(dx, dy);
+    if (m < T.r * 0.05) return; // wait for a clear direction
+    // how well the drag follows each disk's circular motion at the touch point
+    const scored = twDrag.cands.map(d => {
+      const c = T.centers[d], ox = twDrag.start[0] - c[0], oy = twDrag.start[1] - c[1], lever = Math.hypot(ox, oy);
+      let s = lever ? Math.abs(dx * -oy + dy * ox) / (m * lever) : 0;
+      if (lever < T.r * 0.2) s *= lever / (T.r * 0.2); // too close to a center to steer it
+      // a true turn keeps the finger at the same distance from the center
+      const drift = Math.abs(Math.hypot(p[0] - c[0], p[1] - c[1]) - lever) / m;
+      return { d, s, drift };
+    }).sort((a, b) => b.s - a.s);
+    let pick = scored[0];
+    if (scored.length > 1 && scored[0].s - scored[1].s < 0.15) {
+      // Two disks move this spot the same way (it sits on the line between
+      // their centers). Wait for the path to curve, then take the disk it
+      // stays the same distance from.
+      if (m < T.r * 0.2) return;
+      pick = scored.filter(x => scored[0].s - x.s < 0.15).sort((a, b) => a.drift - b.drift)[0];
+    }
+    twStart(pick.d, twDrag.start);
+  }
+  const c = T.centers[twDrag.disk];
   if (Math.hypot(p[0] - c[0], p[1] - c[1]) < board.twist.r * 0.08) return; // too near the center to read
   const a = Math.atan2(p[1] - c[1], p[0] - c[0]);
   let d = a - twDrag.last;
@@ -711,6 +740,7 @@ twCanvas.addEventListener('pointermove', ev => {
 });
 function twRelease(ev) {
   if (!twDrag || ev.pointerId !== twDrag.id || twDrag.snapping) return;
+  if (twDrag.disk === null) { twDrag = null; render(); return; } // a tap in an overlap: nothing turns
   const step = board.twist.step * Math.PI / 180, k = Math.round(twDrag.angle / step);
   const from = twDrag.angle, to = k * step, t0 = performance.now(), dur = 110;
   twDrag.snapping = true;
