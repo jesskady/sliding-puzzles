@@ -12,6 +12,7 @@ Variations on the 15 puzzle: one missing tile, slide tiles into the gap to put t
 - **Hexagon**: interlocking honeycomb in a hexagonal outline
 - **Ring**: a square board with a hole in the middle
 - **Dartboard**: concentric colored rings cut into wedges; tiles move around a ring or in/out a ring
+- **Color rings**: balls in overlapping circular tracks (2 overlapping, 3 in a row, or a 4-leaf clover). No gap: drag a ring to rotate every ball on it, and balls where tracks cross belong to both rings. Solved when every ball is back in its color zone. (No auto-solve for these.)
 
 ## Features
 

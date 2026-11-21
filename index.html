@@ -34,6 +34,11 @@
   .colored .tile text { fill:#fff; }
   .tile text { font-weight:700; fill:var(--ink); pointer-events:none; dominant-baseline:central; text-anchor:middle; transition:transform .12s ease-out; }
   .tile { transition:transform .12s ease-out; }
+  /* Color rings: pale tracks, balls with a thin edge; "in place" gets a white ring */
+  .track { fill:none; stroke:#e4ddd0; }
+  .rings .tile .shape { stroke:rgba(0,0,0,.35); stroke-width:.012; }
+  .rings .tile.home .shape { stroke:#fff; stroke-width:.03; }
+  .rings .tile { cursor:grab; }
 </style>
 </head>
 <body>
@@ -61,6 +66,9 @@
       <option value="dart:3-6">Dartboard 3 rings × 6 (17)</option>
       <option value="dart:3-8">Dartboard 3 rings × 8 (23)</option>
       <option value="dart:4-8">Dartboard 4 rings × 8 (31)</option>
+      <option value="rings:2">Color rings: 2 overlapping (38 balls)</option>
+      <option value="rings:3">Color rings: 3 in a row (68 balls)</option>
+      <option value="rings:4">Color rings: 4-leaf clover (88 balls)</option>
     </select>
   </label>
   <button id="shuffle">Shuffle</button>
@@ -209,6 +217,43 @@ const builders = {
       tileColor: t => colors[Math.floor((t - 1) / W)],
     };
   },
+
+  // Color rings: balls in circular tracks with no gap. Dragging a ring rotates
+  // all its balls one step at a time; balls where two tracks cross belong to
+  // both rings. Every ring has n evenly spaced balls, and each pair of
+  // overlapping rings meets exactly at ball positions, so crossing balls are
+  // shared. Solved = every position holds a ball of its home color.
+  rings(kind) {
+    const deg = Math.PI / 180, a = Math.sqrt(3) / 2;
+    const blk = '#2e2e2e', blu = '#2f6fe4', red = '#d23c3c', yel = '#e6b81c';
+    const def = {
+      // two rings of 20 crossing 90° apart; each ring is two colors split top/bottom
+      2: { n: 20, start: [45, 135], centers: [[-Math.SQRT1_2, 0], [Math.SQRT1_2, 0]], colors: [[blu, red], [blk, yel]] },
+      // a chain of three rings of 24; the middle one is two colors
+      3: { n: 24, start: [0, 0, 0], centers: [[-Math.SQRT2, 0], [0, 0], [Math.SQRT2, 0]], colors: [[red, red], [blk, blu], [yel, yel]] },
+      // a 2×2 clover of rings of 24; each overlaps its side and vertical neighbors
+      4: { n: 24, start: [0, 0, 0, 0], centers: [[-a, -a], [a, -a], [-a, a], [a, a]], colors: [[blk, blk], [blu, blu], [red, red], [yel, yel]] },
+    }[kind];
+    const ballR = { 2: 0.13, 3: 0.11, 4: 0.093 }[kind], cells = [], rings = [];
+    const find = (x, y) => cells.findIndex(c => Math.hypot(c.center[0] - x, c.center[1] - y) < 1e-6);
+    def.centers.forEach(([cx, cy], ri) => {
+      const ring = [];
+      for (let k = 0; k < def.n; k++) {
+        const t = (def.start[ri] + k * 360 / def.n) * deg, x = cx + Math.cos(t), y = cy + Math.sin(t);
+        let i = find(x, y);
+        if (i < 0) {
+          // top half of the ring takes its first color (the rightmost point counts as top)
+          const top = Math.sin(t) < -1e-9 || (Math.abs(Math.sin(t)) < 1e-9 && Math.cos(t) > 0);
+          i = cells.length;
+          const poly = [0, 1, 2, 3, 4, 5, 6, 7].map(j => [x + ballR * 1.25 * Math.cos(j * Math.PI / 4), y + ballR * 1.25 * Math.sin(j * Math.PI / 4)]);
+          cells.push({ center: [x, y], poly, neighbors: [], color: def.colors[ri][top ? 0 : 1] });
+        }
+        ring.push(i); // in clockwise order on screen
+      }
+      rings.push({ center: [cx, cy], cells: ring });
+    });
+    return { cells, rings, ballR, fontScale: 0, label: () => '', tileColor: t => cells[t - 1].color };
+  },
 };
 
 // ---- State ----------------------------------------------------------------
@@ -224,6 +269,7 @@ function newBoard(spec) {
   const [shape, arg] = spec.split(':');
   board = builders[shape](arg.includes('-') ? arg.split('-').map(Number) : Number(arg));
   cancelSolve();
+  $solve.hidden = !!board.rings; // the auto-solver only knows gap puzzles
   resetSolved();
   buildSvg();
   shuffle();
@@ -231,6 +277,7 @@ function newBoard(spec) {
 
 function solvedState() {
   const n = board.cells.length;
+  if (board.rings) return board.cells.map((_, i) => i + 1); // no gap
   return board.cells.map((_, i) => (i === n - 1 ? 0 : i + 1));
 }
 
@@ -241,7 +288,13 @@ function resetSolved() {
 
 function emptyCell() { return state.indexOf(0); }
 
+// Ring boards: a ball is "home" when its color matches the position's color.
+const atHome = (tile, idx) => board.rings
+  ? board.cells[tile - 1].color === board.cells[idx].color
+  : idx === tile - 1;
+
 function isSolved() {
+  if (board.rings) return state.every((t, i) => atHome(t, i));
   return state.every((t, i) => (i === state.length - 1 ? t === 0 : t === i + 1));
 }
 
@@ -249,6 +302,15 @@ function isSolved() {
 function shuffle() {
   cancelSolve();
   resetSolved();
+  if (board.rings) {
+    // random ring turns; a few hundred is plenty to mix every color
+    for (let i = 0; i < board.cells.length * 8; i++)
+      spinRing(Math.floor(Math.random() * board.rings.length), Math.random() < 0.5 ? 1 : -1);
+    if (isSolved()) return shuffle();
+    moves = 0; solvedOnce = false;
+    render();
+    return;
+  }
   const steps = board.cells.length * 40;
   let prev = -1;
   for (let i = 0; i < steps; i++) {
@@ -274,6 +336,12 @@ function tryMove(cellIdx, auto = false) {
   render();
 }
 
+// Rotate ring ri one ball clockwise (dir 1) or counterclockwise (dir -1).
+function spinRing(ri, dir) {
+  const r = board.rings[ri].cells, n = r.length, old = r.map(i => state[i]);
+  r.forEach((cell, j) => { state[cell] = old[(j - dir + n) % n]; });
+}
+
 // ---- Rendering ------------------------------------------------------------
 let tileEls = {}; // tile number -> <g>
 
@@ -288,6 +356,8 @@ function buildSvg() {
 
   const ns = 'http://www.w3.org/2000/svg';
   svg.classList.toggle('colored', !!board.tileColor);
+  svg.classList.toggle('rings', !!board.rings);
+  if (board.rings) { buildRingsSvg(ns); return; }
   // Cell backgrounds (tinted with the ring color on boards that have one)
   for (const c of board.cells) {
     const p = document.createElementNS(ns, 'polygon');
@@ -318,11 +388,35 @@ function buildSvg() {
   }
 }
 
+// Ring boards: a light track for each ring, then one ball per position.
+function buildRingsSvg(ns) {
+  const m = 1 + board.ballR * 2.2;
+  const xs = board.rings.map(r => r.center[0]), ys = board.rings.map(r => r.center[1]);
+  const minX = Math.min(...xs) - m, minY = Math.min(...ys) - m;
+  svg.setAttribute('viewBox', `${minX} ${minY} ${Math.max(...xs) + m - minX} ${Math.max(...ys) + m - minY}`);
+  for (const r of board.rings) {
+    const c = document.createElementNS(ns, 'circle');
+    c.setAttribute('cx', r.center[0]); c.setAttribute('cy', r.center[1]); c.setAttribute('r', 1);
+    c.setAttribute('class', 'track'); c.setAttribute('stroke-width', board.ballR * 2.6);
+    svg.appendChild(c);
+  }
+  for (let i = 0; i < board.cells.length; i++) {
+    const tile = i + 1, g = document.createElementNS(ns, 'g');
+    g.setAttribute('class', 'tile');
+    g.style.setProperty('--tc', board.tileColor(tile));
+    const ball = document.createElementNS(ns, 'circle');
+    ball.setAttribute('class', 'shape'); ball.setAttribute('r', board.ballR);
+    g.appendChild(ball);
+    svg.appendChild(g);
+    tileEls[tile] = g;
+  }
+}
+
 let peeking = false; // while true, draw the solved board instead of the real one
 
 function render() {
   const view = peeking ? solvedState() : state;
-  const movable = new Set(peeking || isSolved() ? [] : board.cells[emptyCell()].neighbors);
+  const movable = new Set(peeking || isSolved() || board.rings ? [] : board.cells[emptyCell()].neighbors);
   view.forEach((tile, idx) => {
     if (!tile) return;
     const g = tileEls[tile], cell = board.cells[idx], [x, y] = cell.center;
@@ -339,7 +433,7 @@ function render() {
       g.lastChild.style.transform = `rotate(${-rot}deg)`;
     }
     g.classList.toggle('movable', movable.has(idx));
-    g.classList.toggle('home', $hints.checked && idx === tile - 1);
+    g.classList.toggle('home', $hints.checked && atHome(tile, idx));
   });
   $moves.textContent = moves;
   if (isSolved() && moves > 0) { $status.textContent = `Solved in ${moves} moves!`; solvedOnce = true; }
@@ -391,11 +485,13 @@ function boardPoint(ev) {
 
 // Clicks use the same hit zones as mouse-move control.
 svg.addEventListener('click', ev => {
+  if (board.rings) return;
   const cell = cellAt(boardPoint(ev));
   if (cell !== null && state[cell]) tryMove(cell);
 });
 
 function trackTo(pt) {
+  if (board.rings) return; // ring boards use ring dragging below
   if (lastPt) {
     const dx = pt[0] - lastPt[0], dy = pt[1] - lastPt[1];
     const steps = Math.ceil(Math.hypot(dx, dy) / 0.1);
@@ -417,6 +513,61 @@ svg.addEventListener('pointermove', ev => {
 svg.addEventListener('pointerup', ev => { if (!hoverTracking(ev)) resetTrack(); });
 svg.addEventListener('pointercancel', resetTrack);
 svg.addEventListener('pointerleave', resetTrack);
+
+// ---- Ring dragging --------------------------------------------------------
+// Grab any ball and drag along its track: the ring turns one ball-step for each
+// step of angle your finger travels around the ring's center, so the ball
+// stays under your finger. A ball where two tracks cross picks the ring whose
+// direction best matches your first movement.
+let rdrag = null;
+svg.addEventListener('pointerdown', ev => {
+  if (!board.rings) return;
+  const pt = boardPoint(ev);
+  let best = -1, bestD = board.ballR * 1.8;
+  board.cells.forEach((c, i) => {
+    const d = Math.hypot(pt[0] - c.center[0], pt[1] - c.center[1]);
+    if (d < bestD) { best = i; bestD = d; }
+  });
+  if (best < 0) return;
+  ev.preventDefault();
+  try { svg.setPointerCapture(ev.pointerId); } catch (e) {}
+  rdrag = { id: ev.pointerId, cell: best, start: pt, ring: null, a: 0, acc: 0 };
+});
+svg.addEventListener('pointermove', ev => {
+  if (!rdrag || ev.pointerId !== rdrag.id) return;
+  const pt = boardPoint(ev);
+  if (rdrag.ring === null) {
+    const dx = pt[0] - rdrag.start[0], dy = pt[1] - rdrag.start[1];
+    if (Math.hypot(dx, dy) < board.ballR * 0.6) return;
+    const c = board.cells[rdrag.cell].center;
+    let bestS = -1;
+    board.rings.forEach((r, i) => {
+      if (!r.cells.includes(rdrag.cell)) return;
+      const tx = -(c[1] - r.center[1]), ty = c[0] - r.center[0]; // tangent of ring i at this ball
+      const s = Math.abs(dx * tx + dy * ty) / Math.hypot(tx, ty) / Math.hypot(dx, dy);
+      if (s > bestS) { bestS = s; rdrag.ring = i; }
+    });
+    const [cx, cy] = board.rings[rdrag.ring].center;
+    rdrag.a = Math.atan2(rdrag.start[1] - cy, rdrag.start[0] - cx);
+  }
+  const ring = board.rings[rdrag.ring], [cx, cy] = ring.center;
+  const a = Math.atan2(pt[1] - cy, pt[0] - cx);
+  let d = a - rdrag.a;
+  if (d > Math.PI) d -= 2 * Math.PI;
+  if (d < -Math.PI) d += 2 * Math.PI;
+  rdrag.a = a; rdrag.acc += d;
+  const step = 2 * Math.PI / ring.cells.length;
+  let turned = false;
+  while (Math.abs(rdrag.acc) >= step) {
+    const s = Math.sign(rdrag.acc);
+    rdrag.acc -= s * step;
+    spinRing(rdrag.ring, s); moves++; turned = true;
+  }
+  if (turned) render();
+});
+const endRingDrag = ev => { if (rdrag && ev.pointerId === rdrag.id) rdrag = null; };
+svg.addEventListener('pointerup', endRingDrag);
+svg.addEventListener('pointercancel', endRingDrag);
 
 // ---- Auto-solve -----------------------------------------------------------
 // Search runs in a worker (solver.js) so the page stays responsive; the
