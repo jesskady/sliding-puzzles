@@ -68,7 +68,7 @@
       <option value="dart:4-8">Dartboard 4 rings × 8 (31)</option>
       <option value="rings:2">Color rings: 2 overlapping (38 balls)</option>
       <option value="rings:3">Color rings: 3 in a row (68 balls)</option>
-      <option value="rings:4">Color rings: 4-leaf clover (88 balls)</option>
+      <option value="rings:4">Color rings: 4-leaf clover (98 balls)</option>
     </select>
   </label>
   <button id="shuffle">Shuffle</button>
@@ -218,40 +218,86 @@ const builders = {
     };
   },
 
-  // Color rings: balls in circular tracks with no gap. Dragging a ring rotates
-  // all its balls one step at a time; balls where two tracks cross belong to
-  // both rings. Every ring has n evenly spaced balls, and each pair of
-  // overlapping rings meets exactly at ball positions, so crossing balls are
-  // shared. Solved = every position holds a ball of its home color.
+  // Color rings: balls in closed tracks with no gap. Dragging a ring rotates
+  // all its balls one step at a time. Balls where tracks meet belong to every
+  // track through them: a single crossing ball, or on the clover a whole
+  // straight column shared by side-by-side rings. Solved colors follow photos
+  // of the physical puzzles. Solved = every position holds its home color.
   rings(kind) {
-    const deg = Math.PI / 180, a = Math.sqrt(3) / 2;
-    const blk = '#2e2e2e', blu = '#2f6fe4', red = '#d23c3c', yel = '#e6b81c';
-    const def = {
-      // two rings of 20 crossing 90° apart; each ring is two colors split top/bottom
-      2: { n: 20, start: [45, 135], centers: [[-Math.SQRT1_2, 0], [Math.SQRT1_2, 0]], colors: [[blu, red], [blk, yel]] },
-      // a chain of three rings of 24; the middle one is two colors
-      3: { n: 24, start: [0, 0, 0], centers: [[-Math.SQRT2, 0], [0, 0], [Math.SQRT2, 0]], colors: [[red, red], [blk, blu], [yel, yel]] },
-      // a 2×2 clover of rings of 24; each overlaps its side and vertical neighbors
-      4: { n: 24, start: [0, 0, 0, 0], centers: [[-a, -a], [a, -a], [-a, a], [a, a]], colors: [[blk, blk], [blu, blu], [red, red], [yel, yel]] },
-    }[kind];
-    const ballR = { 2: 0.13, 3: 0.11, 4: 0.093 }[kind], cells = [], rings = [];
+    const blk = '#2e2e2e', blu = '#2f6fe4', red = '#d23c3c', yel = '#e6b81c', D = Math.PI / 180;
+    const circle = (cx, cy, n, startDeg) => Array.from({ length: n }, (_, k) => {
+      const t = (startDeg + k * 360 / n) * D;
+      return [cx + Math.cos(t), cy + Math.sin(t)];
+    });
+    const angle = ([x, y], [cx, cy]) => Math.atan2(y - cy, x - cx) / D; // -180..180, clockwise on screen
+    let def;
+    if (kind === 2) {
+      // Two rings of 20 crossing at 90°, 4 balls between the crossings.
+      // Left: blue over its upper-left arc, red below and on its inner arc.
+      // Right: yellow over its lower-right arc, black on top and its inner arc.
+      // Top crossing black, bottom crossing red (10/10/9/9).
+      const c = [[-Math.SQRT1_2, 0], [Math.SQRT1_2, 0]];
+      def = { centers: c, ballR: 0.13, tracks: [circle(...c[0], 20, 45), circle(...c[1], 20, 135)],
+        color(p, on) {
+          if (on.length > 1) return p[1] < 0 ? blk : red;
+          if (on[0] === 0) { const a = angle(p, c[0]); return a <= -60 || a >= 150 ? blu : red; }
+          const a = angle(p, c[1]);
+          return a > -30 && a < 120 ? yel : blk;
+        } };
+    } else if (kind === 3) {
+      // A chain of three rings of 24. Outer rings: red (left) and yellow
+      // (right), with their inner arcs matching the middle ring's half they
+      // sit in. Middle ring: black on its left and top, blue on its right and
+      // bottom. Left crossings black, right crossings blue (17 of each color).
+      const c = [[-Math.SQRT2, 0], [0, 0], [Math.SQRT2, 0]];
+      def = { centers: c, ballR: 0.11, tracks: c.map(([x, y]) => circle(x, y, 24, 0)),
+        color(p, on) {
+          if (on.length > 1) return p[0] < 0 ? blk : blu;
+          const a = angle(p, c[on[0]]);
+          if (on[0] === 0) return Math.abs(a) < 45 ? blk : red;
+          if (on[0] === 2) return Math.abs(a) > 135 ? blu : yel;
+          return a > -45 && a <= 120 ? blu : blk;
+        } };
+    } else {
+      // Clover of four 28-ball tracks: black, blue / red, yellow. Each track is
+      // a circle with its inner side flattened into a straight column of 5
+      // balls shared with its side neighbor; tracks above and below cross at
+      // two balls. Top column: 3 black over 2 blue. Bottom column: 2 red over
+      // 3 yellow. Left crossings red, right crossings blue.
+      const R = 14 / Math.PI, alpha = Math.PI / 7, step = Math.PI / 14;
+      const a = R * Math.cos(alpha), s = R * Math.sin(alpha), b = R * Math.sin(2 * Math.PI / 7);
+      const tl = [];
+      for (let i = 0; i <= 4; i++) tl.push([0, -b - s + i * s / 2]); // shared column, top to bottom
+      for (let j = 1; j <= 23; j++) { const t = alpha + j * step; tl.push([-a + R * Math.cos(t), -b + R * Math.sin(t)]); }
+      // mirroring flips direction, so reverse to keep every track clockwise
+      const mirror = (pts, fx, fy) => { const m = pts.map(([x, y]) => [x * fx + 0, y * fy + 0]); return fx * fy < 0 ? m.reverse() : m; };
+      const own = [blk, blu, red, yel];
+      def = { centers: [[-a, -b], [a, -b], [-a, b], [a, b]], ballR: 0.4,
+        tracks: [tl, mirror(tl, -1, 1), mirror(tl, 1, -1), mirror(tl, -1, -1)], // TL TR BL BR
+        color([x, y], on) {
+          if (on.length === 1) return own[on[0]];
+          if (Math.abs(x) < 1e-6) {
+            const i = Math.round((Math.abs(y) - (b - s)) / (s / 2)); // 0 = end nearest the middle
+            return y < 0 ? (i <= 1 ? blu : blk) : (i <= 1 ? red : yel);
+          }
+          return x < 0 ? red : blu;
+        } };
+    }
+    const ballR = def.ballR, cells = [];
     const find = (x, y) => cells.findIndex(c => Math.hypot(c.center[0] - x, c.center[1] - y) < 1e-6);
-    def.centers.forEach(([cx, cy], ri) => {
-      const ring = [];
-      for (let k = 0; k < def.n; k++) {
-        const t = (def.start[ri] + k * 360 / def.n) * deg, x = cx + Math.cos(t), y = cy + Math.sin(t);
+    const rings = def.tracks.map((pts, ri) => ({
+      center: def.centers[ri],
+      cells: pts.map(([x, y]) => { // in clockwise order on screen
         let i = find(x, y);
         if (i < 0) {
-          // top half of the ring takes its first color (the rightmost point counts as top)
-          const top = Math.sin(t) < -1e-9 || (Math.abs(Math.sin(t)) < 1e-9 && Math.cos(t) > 0);
           i = cells.length;
           const poly = [0, 1, 2, 3, 4, 5, 6, 7].map(j => [x + ballR * 1.25 * Math.cos(j * Math.PI / 4), y + ballR * 1.25 * Math.sin(j * Math.PI / 4)]);
-          cells.push({ center: [x, y], poly, neighbors: [], color: def.colors[ri][top ? 0 : 1] });
+          cells.push({ center: [x, y], poly, neighbors: [] });
         }
-        ring.push(i); // in clockwise order on screen
-      }
-      rings.push({ center: [cx, cy], cells: ring });
-    });
+        return i;
+      }),
+    }));
+    cells.forEach((c, i) => { c.color = def.color(c.center, rings.flatMap((r, ri) => r.cells.includes(i) ? [ri] : [])); });
     return { cells, rings, ballR, fontScale: 0, label: () => '', tileColor: t => cells[t - 1].color };
   },
 };
@@ -390,14 +436,15 @@ function buildSvg() {
 
 // Ring boards: a light track for each ring, then one ball per position.
 function buildRingsSvg(ns) {
-  const m = 1 + board.ballR * 2.2;
-  const xs = board.rings.map(r => r.center[0]), ys = board.rings.map(r => r.center[1]);
+  const m = board.ballR * 2.2;
+  const xs = board.cells.map(c => c.center[0]), ys = board.cells.map(c => c.center[1]);
   const minX = Math.min(...xs) - m, minY = Math.min(...ys) - m;
   svg.setAttribute('viewBox', `${minX} ${minY} ${Math.max(...xs) + m - minX} ${Math.max(...ys) + m - minY}`);
   for (const r of board.rings) {
-    const c = document.createElementNS(ns, 'circle');
-    c.setAttribute('cx', r.center[0]); c.setAttribute('cy', r.center[1]); c.setAttribute('r', 1);
+    const c = document.createElementNS(ns, 'polygon');
+    c.setAttribute('points', r.cells.map(i => board.cells[i].center.join(',')).join(' '));
     c.setAttribute('class', 'track'); c.setAttribute('stroke-width', board.ballR * 2.6);
+    c.setAttribute('stroke-linejoin', 'round');
     svg.appendChild(c);
   }
   for (let i = 0; i < board.cells.length; i++) {
@@ -545,7 +592,9 @@ svg.addEventListener('pointermove', ev => {
       if (!r.cells.includes(rdrag.cell)) return;
       const tx = -(c[1] - r.center[1]), ty = c[0] - r.center[0]; // tangent of ring i at this ball
       const s = Math.abs(dx * tx + dy * ty) / Math.hypot(tx, ty) / Math.hypot(dx, dy);
-      if (s > bestS) { bestS = s; rdrag.ring = i; }
+      // On a shared column both rings run the same way; the touch's side picks the ring.
+      const near = -Math.hypot(rdrag.start[0] - r.center[0], rdrag.start[1] - r.center[1]) * 1e-3;
+      if (s + near > bestS) { bestS = s + near; rdrag.ring = i; }
     });
     const [cx, cy] = board.rings[rdrag.ring].center;
     rdrag.a = Math.atan2(rdrag.start[1] - cy, rdrag.start[0] - cx);
