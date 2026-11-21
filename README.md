@@ -13,6 +13,7 @@ Variations on the 15 puzzle: one missing tile, slide tiles into the gap to put t
 - **Ring**: a square board with a hole in the middle
 - **Dartboard**: concentric colored rings cut into wedges; tiles move around a ring or in/out a ring
 - **Color rings**: balls in overlapping circular tracks (2 overlapping, 3 in a row, or a 4-leaf clover). No gap: drag a ring to rotate every ball on it, and balls where tracks cross belong to both rings. On the clover, side-by-side rings share a straight column of 5 balls; grab a column ball on its left or right half to choose which ring turns. Solved when every ball is back in its color zone. (No auto-solve for these.)
+- **Circle twist**: overlapping disks (3 in a triangle, 4 in a square, or a 6-circle flower) that turn in 60° or 90° steps, carrying everything inside them, including parts of the disks they overlap. Drag a disk around; it follows your finger and snaps to the nearest step. The surface is a fine lattice that each step maps exactly onto itself, so turns never drift. (No auto-solve for these.)
 
 ## Features
 

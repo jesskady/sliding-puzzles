@@ -34,6 +34,8 @@
   .colored .tile text { fill:#fff; }
   .tile text { font-weight:700; fill:var(--ink); pointer-events:none; dominant-baseline:central; text-anchor:middle; transition:transform .12s ease-out; }
   .tile { transition:transform .12s ease-out; }
+  #twist { display:block; touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; cursor:grab; }
+  [hidden] { display:none !important; }
   /* Color rings: pale tracks, balls with a thin edge; "in place" gets a white ring */
   .track { fill:none; stroke:#e4ddd0; }
   .rings .tile .shape { stroke:rgba(0,0,0,.35); stroke-width:.012; }
@@ -69,19 +71,23 @@
       <option value="rings:2">Color rings: 2 overlapping (38 balls)</option>
       <option value="rings:3">Color rings: 3 in a row (68 balls)</option>
       <option value="rings:4">Color rings: 4-leaf clover (98 balls)</option>
+      <option value="twist:3">Circle twist: 3 circles (60° turns)</option>
+      <option value="twist:4">Circle twist: 4 circles (90° turns)</option>
+      <option value="twist:6">Circle twist: 6-circle flower (60° turns)</option>
     </select>
   </label>
   <button id="shuffle">Shuffle</button>
   <button id="reset">Reset</button>
   <button id="solve">Solve</button>
   <button id="peek" title="Hover to see the solved board">Peek</button>
-  <label><input type="checkbox" id="hints" checked> Highlight tiles in place</label>
+  <label id="hintsLabel"><input type="checkbox" id="hints" checked> Highlight tiles in place</label>
   <label class="mouse-only"><input type="checkbox" id="mousemode"> Mouse-move control</label>
 </div>
 <div>Moves: <span id="moves">0</span></div>
 <div class="status" id="status"></div>
 <div id="solveinfo"></div>
 <svg id="board" xmlns="http://www.w3.org/2000/svg"></svg>
+<canvas id="twist" hidden></canvas>
 
 <script>
 // ---- Board geometry -------------------------------------------------------
@@ -300,6 +306,85 @@ const builders = {
     cells.forEach((c, i) => { c.color = def.color(c.center, rings.flatMap((r, ri) => r.cells.includes(i) ? [ri] : [])); });
     return { cells, rings, ballR, fontScale: 0, label: () => '', tileColor: t => cells[t - 1].color };
   },
+
+  // Circle twist: overlapping disks that each rotate in fixed steps, carrying
+  // everything inside them (including parts of the disks they overlap). The
+  // surface is a fine lattice of points that a step maps exactly onto itself:
+  // a triangular lattice for 60° steps, a square one for 90°. Every disk is
+  // centered on a lattice point, so turns are exact permutations and the
+  // puzzle never drifts, however long you play. Solved colors follow photos of
+  // the physical puzzles: each region is colored by which disks cover it.
+  twist(kind) {
+    const S3 = Math.sqrt(3) / 2, tri = kind !== 4;
+    let centers, r, palette, colorOf;
+    if (kind === 3) {
+      // Red on top, blue left, green right; overlaps mix like colored light.
+      const D = 96; r = D / 1.4;
+      centers = [[D, -D], [0, 0], [D, 0]]; // red, blue, green
+      palette = ['#f2412f', '#2f45d8', '#5fe07d', '#ff8088', '#ffd23a', '#43b5f2', '#f7dce8'];
+      colorOf = m => ({ '0': 0, '1': 1, '2': 2, '01': 3, '02': 4, '12': 5 })[m.join('')] ?? 6;
+    } else if (kind === 4) {
+      // 2×2: purple, peach / violet, sky blue; pairwise overlaps get their own
+      // colors and the middle, where three or four disks meet, is pale lavender.
+      const D = 110; r = D / 1.15;
+      centers = [[0, 0], [D, 0], [0, D], [D, D]]; // TL TR BL BR
+      palette = ['#a22aa8', '#f3b46c', '#6a3fd0', '#3fa3f0', '#ef4b8c', '#e66ad0', '#3fcfa2', '#2c33b8', '#ece2f6'];
+      colorOf = m => m.length === 1 ? m[0] : (({ '01': 4, '02': 5, '13': 6, '23': 7 })[m.join('')] ?? 8);
+    } else {
+      // Six disks around a center, each passing through it. Where a disk is
+      // alone it shows its color; everywhere two or more overlap is white.
+      const R = 72; r = R;
+      centers = [[R, 0], [0, R], [-R, R], [-R, 0], [0, -R], [R, -R]]; // yellow, green, blue, purple, red, orange
+      palette = ['#f6cc2e', '#1fa37a', '#2f6fe4', '#7a3fc4', '#e2343a', '#f26a2e', '#f4f1f8'];
+      colorOf = m => m.length === 1 ? m[0] : 6;
+    }
+    const r4 = 4 * r * r + 1e-6;
+    const inDisk = (i, j, [ci, cj]) => {
+      const di = i - ci, dj = j - cj;
+      return (tri ? (2 * di + dj) ** 2 + 3 * dj * dj : 4 * (di * di + dj * dj)) <= r4;
+    };
+    const key = (i, j) => (i + 4096) * 8192 + (j + 4096);
+    const pts = [], colors = [], index = new Map();
+    const ci = centers.map(c => c[0]), cj = centers.map(c => c[1]), span = Math.ceil(2 * r) + 2;
+    for (let j = Math.min(...cj) - span; j <= Math.max(...cj) + span; j++)
+      for (let i = Math.min(...ci) - 2 * span; i <= Math.max(...ci) + 2 * span; i++) {
+        const m = centers.flatMap((c, k) => inDisk(i, j, c) ? [k] : []);
+        if (!m.length) continue;
+        index.set(key(i, j), pts.length);
+        pts.push([i, j]); colors.push(colorOf(m));
+      }
+    // one clockwise step for each disk, as [from, to] index pairs
+    const perms = centers.map(c => {
+      const pairs = [];
+      pts.forEach(([i, j], p) => {
+        if (!inDisk(i, j, c)) return;
+        const di = i - c[0], dj = j - c[1];
+        const [ri, rj] = tri ? [-dj, di + dj] : [-dj, di];
+        pairs.push(p, index.get(key(c[0] + ri, c[1] + rj)));
+      });
+      return Int32Array.from(pairs);
+    });
+    // Offscreen image: one pixel per point on the square lattice; on the
+    // triangular lattice each point is two half-width pixels so rows can
+    // offset by half a point.
+    const px = tri ? pts.map(([i, j]) => 2 * i + j) : pts.map(([i]) => i), py = pts.map(([, j]) => j);
+    const minX = Math.min(...px), minY = Math.min(...py);
+    const img = {
+      w: Math.max(...px) - minX + (tri ? 2 : 1), h: Math.max(...py) - minY + 1,
+      x0: tri ? minX / 2 - 0.5 : minX - 0.5, y0: tri ? minY * S3 - S3 / 2 : minY - 0.5,
+      pw: tri ? 0.5 : 1, ph: tri ? S3 : 1,
+    };
+    const pix = Int32Array.from(pts.map((_, p) => (py[p] - minY) * img.w + (px[p] - minX)));
+    const hex = c => [1, 3, 5].map(k => parseInt(c.slice(k, k + 2), 16));
+    return {
+      cells: [],
+      twist: {
+        tri, r, step: tri ? 60 : 90, perms, pix, img, pts,
+        centers: centers.map(([i, j]) => (tri ? [i + j / 2, j * S3] : [i, j])),
+        palette: palette.map(hex), solved: Uint8Array.from(colors),
+      },
+    };
+  },
 };
 
 // ---- State ----------------------------------------------------------------
@@ -315,14 +400,17 @@ function newBoard(spec) {
   const [shape, arg] = spec.split(':');
   board = builders[shape](arg.includes('-') ? arg.split('-').map(Number) : Number(arg));
   cancelSolve();
-  $solve.hidden = !!board.rings; // the auto-solver only knows gap puzzles
+  $solve.hidden = !!(board.rings || board.twist); // the auto-solver only knows gap puzzles
+  svg.toggleAttribute('hidden', !!board.twist); twCanvas.hidden = !board.twist; // (SVG elements have no .hidden property)
+  document.getElementById('hintsLabel').hidden = !!board.twist;
   resetSolved();
-  buildSvg();
+  if (board.twist) setupTwist(); else buildSvg();
   shuffle();
 }
 
 function solvedState() {
   const n = board.cells.length;
+  if (board.twist) return board.twist.solved.slice();
   if (board.rings) return board.cells.map((_, i) => i + 1); // no gap
   return board.cells.map((_, i) => (i === n - 1 ? 0 : i + 1));
 }
@@ -340,6 +428,7 @@ const atHome = (tile, idx) => board.rings
   : idx === tile - 1;
 
 function isSolved() {
+  if (board.twist) return state.every((c, i) => c === board.twist.solved[i]);
   if (board.rings) return state.every((t, i) => atHome(t, i));
   return state.every((t, i) => (i === state.length - 1 ? t === 0 : t === i + 1));
 }
@@ -348,6 +437,14 @@ function isSolved() {
 function shuffle() {
   cancelSolve();
   resetSolved();
+  if (board.twist) {
+    const T = board.twist, n = 360 / T.step;
+    for (let i = 0; i < 30; i++) turnDisk(Math.floor(Math.random() * T.centers.length), 1 + Math.floor(Math.random() * (n - 1)));
+    if (isSolved()) return shuffle();
+    moves = 0; solvedOnce = false;
+    render();
+    return;
+  }
   if (board.rings) {
     // random ring turns; a few hundred is plenty to mix every color
     for (let i = 0; i < board.cells.length * 8; i++)
@@ -461,7 +558,131 @@ function buildRingsSvg(ns) {
 
 let peeking = false; // while true, draw the solved board instead of the real one
 
+// ---- Circle twist ---------------------------------------------------------
+// Turn disk d by k clockwise steps (negative = counterclockwise).
+function turnDisk(d, k) {
+  const T = board.twist, n = 360 / T.step, perm = T.perms[d];
+  k = ((k % n) + n) % n;
+  for (let s = 0; s < k; s++) {
+    const old = state.slice();
+    for (let q = 0; q < perm.length; q += 2) state[perm[q + 1]] = old[perm[q]];
+  }
+}
+
+const twCanvas = document.getElementById('twist');
+const twOff = document.createElement('canvas');
+let twImg = null, twView = null, twDrag = null;
+
+function setupTwist() {
+  const T = board.twist;
+  twOff.width = T.img.w; twOff.height = T.img.h;
+  twImg = twOff.getContext('2d').createImageData(T.img.w, T.img.h);
+  sizeTwist();
+}
+
+// Fit the puzzle to the canvas (sharp on high-density screens).
+function sizeTwist() {
+  const T = board.twist, pad = T.r * 0.12;
+  const xs = T.centers.map(c => c[0]), ys = T.centers.map(c => c[1]);
+  const minX = Math.min(...xs) - T.r - pad, maxX = Math.max(...xs) + T.r + pad;
+  const minY = Math.min(...ys) - T.r - pad, maxY = Math.max(...ys) + T.r + pad;
+  const aspect = (maxY - minY) / (maxX - minX);
+  const cssW = Math.min(window.innerWidth * 0.94, 520, window.innerHeight * 0.62 / aspect);
+  const dpr = window.devicePixelRatio || 1;
+  twCanvas.style.width = cssW + 'px'; twCanvas.style.height = cssW * aspect + 'px';
+  twCanvas.width = Math.round(cssW * dpr); twCanvas.height = Math.round(cssW * aspect * dpr);
+  const K = twCanvas.width / (maxX - minX);
+  twView = { K, tx: -minX * K, ty: -minY * K, dpr };
+}
+
+function renderTwist() {
+  const T = board.twist, colors = peeking ? T.solved : state, data = twImg.data;
+  for (let p = 0; p < colors.length; p++) {
+    const [r, g, b] = T.palette[colors[p]];
+    for (let k = 0, o = T.pix[p] * 4; k < (T.tri ? 2 : 1); k++, o += 4) { data[o] = r; data[o + 1] = g; data[o + 2] = b; data[o + 3] = 255; }
+  }
+  twOff.getContext('2d').putImageData(twImg, 0, 0);
+  const ctx = twCanvas.getContext('2d'), { K, tx, ty } = twView;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, twCanvas.width, twCanvas.height);
+  ctx.setTransform(K, 0, 0, K, tx, ty);
+  const circle = c => { ctx.moveTo(c[0] + T.r, c[1]); ctx.arc(c[0], c[1], T.r, 0, 2 * Math.PI); };
+  const drawImg = () => { ctx.imageSmoothingEnabled = true; ctx.drawImage(twOff, T.img.x0, T.img.y0, T.img.w * T.img.pw, T.img.h * T.img.ph); };
+  // dark frame around the outline, like the puzzle's base
+  ctx.beginPath(); T.centers.forEach(circle);
+  ctx.lineWidth = T.r * 0.12; ctx.strokeStyle = '#2b2a33'; ctx.stroke();
+  ctx.save(); ctx.beginPath(); T.centers.forEach(circle); ctx.clip();
+  drawImg();
+  if (twDrag && twDrag.angle) { // the disk being turned, at its in-between angle
+    const c = T.centers[twDrag.disk];
+    ctx.save(); ctx.beginPath(); circle(c); ctx.clip();
+    ctx.translate(c[0], c[1]); ctx.rotate(twDrag.angle); ctx.translate(-c[0], -c[1]);
+    drawImg(); ctx.restore();
+  }
+  ctx.restore();
+  // faint outline of each turning disk
+  ctx.lineWidth = T.r * 0.012; ctx.strokeStyle = 'rgba(0,0,0,.28)';
+  T.centers.forEach(c => { ctx.beginPath(); circle(c); ctx.stroke(); });
+  if (twDrag) {
+    ctx.lineWidth = T.r * 0.03; ctx.strokeStyle = 'rgba(255,255,255,.8)';
+    ctx.beginPath(); circle(T.centers[twDrag.disk]); ctx.stroke();
+  }
+  $moves.textContent = moves;
+  if (isSolved() && moves > 0) { $status.textContent = `Solved in ${moves} moves!`; solvedOnce = true; }
+  else $status.textContent = '';
+}
+
+// Drag a disk around its center: it follows your finger, then snaps to the
+// nearest step when you let go. Where disks overlap, the touch picks the disk
+// whose center is closest.
+function twPoint(ev) {
+  const rect = twCanvas.getBoundingClientRect(), { K, tx, ty, dpr } = twView;
+  return [((ev.clientX - rect.left) * dpr - tx) / K, ((ev.clientY - rect.top) * dpr - ty) / K];
+}
+twCanvas.addEventListener('pointerdown', ev => {
+  if (!board.twist || twDrag) return;
+  const T = board.twist, p = twPoint(ev);
+  let best = -1, bestD = Infinity;
+  T.centers.forEach((c, i) => { const d = Math.hypot(p[0] - c[0], p[1] - c[1]); if (d <= T.r && d < bestD) { best = i; bestD = d; } });
+  if (best < 0) return;
+  ev.preventDefault();
+  try { twCanvas.setPointerCapture(ev.pointerId); } catch (e) {}
+  const c = T.centers[best];
+  twDrag = { id: ev.pointerId, disk: best, angle: 0, last: Math.atan2(p[1] - c[1], p[0] - c[0]) };
+  render();
+});
+twCanvas.addEventListener('pointermove', ev => {
+  if (!twDrag || ev.pointerId !== twDrag.id || twDrag.snapping) return;
+  const c = board.twist.centers[twDrag.disk], p = twPoint(ev);
+  if (Math.hypot(p[0] - c[0], p[1] - c[1]) < board.twist.r * 0.08) return; // too near the center to read
+  const a = Math.atan2(p[1] - c[1], p[0] - c[0]);
+  let d = a - twDrag.last;
+  if (d > Math.PI) d -= 2 * Math.PI;
+  if (d < -Math.PI) d += 2 * Math.PI;
+  twDrag.last = a; twDrag.angle += d;
+  render();
+});
+function twRelease(ev) {
+  if (!twDrag || ev.pointerId !== twDrag.id || twDrag.snapping) return;
+  const step = board.twist.step * Math.PI / 180, k = Math.round(twDrag.angle / step);
+  const from = twDrag.angle, to = k * step, t0 = performance.now(), dur = 110;
+  twDrag.snapping = true;
+  const frame = now => {
+    const t = Math.min(1, (now - t0) / dur), e = 1 - (1 - t) ** 3;
+    twDrag.angle = from + (to - from) * e;
+    if (t < 1) { render(); requestAnimationFrame(frame); return; }
+    if (k) { turnDisk(twDrag.disk, k); moves += Math.abs(k); }
+    twDrag = null; render();
+  };
+  requestAnimationFrame(frame);
+}
+twCanvas.addEventListener('pointerup', twRelease);
+twCanvas.addEventListener('pointercancel', twRelease);
+twCanvas.addEventListener('contextmenu', ev => ev.preventDefault());
+window.addEventListener('resize', () => { if (board.twist) { sizeTwist(); render(); } });
+
 function render() {
+  if (board.twist) return renderTwist();
   const view = peeking ? solvedState() : state;
   const movable = new Set(peeking || isSolved() || board.rings ? [] : board.cells[emptyCell()].neighbors);
   view.forEach((tile, idx) => {
