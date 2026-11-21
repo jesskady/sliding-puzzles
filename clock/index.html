@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Clock Puzzle</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: one-screen instrument. Timer strip, the two faces of the puzzle (the side facing you on top, the back below), control row. The light side and dark side are styled differently so you always know which one you're holding. */
+:root{
+  color-scheme:dark;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);box-sizing:border-box;
+  --ground:#111418;
+  --panel:#1a1f26;
+  --line:#2b323c;
+  --ink:#e8ecf1;
+  --muted:#8792a0;
+  --accent:#86b6ff;
+  --good:#4fd08a;
+  --noon:#ff8a3d;
+  --display:'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono:'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+}
+[hidden]{display:none!important}
+html,body{height:100%;overflow:hidden;touch-action:none;overscroll-behavior:none}
+body{
+  margin:0;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;
+  background:var(--ground);color:var(--ink);font:14px var(--display);
+  padding-left:max(16px, env(safe-area-inset-left, 0px));
+  padding-right:max(16px, env(safe-area-inset-right, 0px));
+}
+.app{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:10px;padding-block:12px;box-sizing:border-box;height:100%}
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.time{font-family:var(--mono);font-weight:600;font-size:36px;font-variant-numeric:tabular-nums;line-height:1}
+.time.done{color:var(--good)}
+.phase{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.lastbox{text-align:center}
+.lt{font-family:var(--mono);font-weight:600;font-size:20px;line-height:1.2;min-height:1.2em}
+.stats{text-align:right;font-family:var(--mono);font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;line-height:1.5}
+.stats b{color:var(--ink);font-weight:500}
+.faces{flex:1;min-height:0;display:flex;flex-wrap:wrap;gap:6px 24px;justify-content:center;align-content:center}
+.face{display:flex;flex-direction:column;align-items:center;gap:2px}
+.face .cap{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.face svg{width:min(calc(100vw - 32px), calc((100dvh - 215px) / 2), 340px);height:auto;display:block;touch-action:none;-webkit-touch-callout:none}
+@media (min-width:700px) and (min-aspect-ratio:1/1){.face svg{width:min(340px, calc(100dvh - 210px))}}
+.controls{display:flex;gap:8px;flex-wrap:wrap}
+button{
+  font:500 15px var(--display);color:var(--ink);background:var(--panel);
+  border:1px solid var(--line);border-radius:10px;padding:11px 14px;flex:1 1 auto;
+  touch-action:manipulation;cursor:pointer;
+}
+button.primary{background:var(--accent);color:#0c1420;border-color:transparent;font-weight:700}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button:active{transform:translateY(1px)}
+
+/* the two sides */
+.light .body{fill:#cfd5dd}
+.light .dial{fill:#fbfbf8;stroke:#aab2bd}
+.light .tick{fill:#9aa3ae}
+.light .hand{fill:#1b2129}
+.light .cap2{fill:#1b2129}
+.dark .body{fill:#2b313b}
+.dark .dial{fill:#0e1217;stroke:#454e5b}
+.dark .tick{fill:#56606d}
+.dark .hand{fill:#eef2f6}
+.dark .cap2{fill:#eef2f6}
+.dial{stroke-width:2;transition:stroke 120ms}
+.dial.hl{stroke:var(--accent);stroke-width:5}
+.dial.solved{stroke:var(--good);stroke-width:4}
+.noon{fill:var(--noon)}
+.pin-hole{fill:rgba(0,0,0,.35)}
+.pin{transition:r 120ms, fill 120ms}
+.pin.up{fill:#ffcf4a;stroke:#8a6a10;stroke-width:2}
+.pin.down{fill:rgba(0,0,0,.25);stroke:rgba(127,127,127,.6);stroke-width:1.5}
+.wheel{fill:#3a4250;stroke:#202631;stroke-width:2}
+.wheel.hl{stroke:var(--accent);stroke-width:3}
+.grip{stroke:#8792a0;stroke-width:2.5;stroke-linecap:round}
+[data-wheel],[data-pin]{cursor:pointer}
+
+.sheet{position:fixed;inset:0;background:var(--ground);overflow:auto;touch-action:pan-y;z-index:20;
+  padding:max(20px, env(safe-area-inset-top, 0px)) max(20px, env(safe-area-inset-right, 0px)) max(20px, env(safe-area-inset-bottom, 0px)) max(20px, env(safe-area-inset-left, 0px));
+  font-size:15px;line-height:1.6;color:var(--muted);user-select:text;-webkit-user-select:text}
+.sheet .inner{max-width:620px;margin:0 auto}
+.sheet h2{color:var(--ink);font-size:20px;margin:0 0 8px}
+.sheet h3{color:var(--ink);font-size:16px;margin:24px 0 4px}
+.sheet ul,.sheet ol{padding-left:20px}
+.sheet b{color:var(--ink);font-weight:600}
+.sheet a{color:var(--accent)}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px 14px;flex-wrap:wrap;padding-block:12px;border-bottom:1px solid var(--line);color:var(--ink)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.seg button{border:0;border-radius:0;padding:7px 11px;font-size:13px;flex:none;background:transparent;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--line);color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div>
+      <div class="phase" id="phase">Free play</div>
+      <div class="time" id="time">0:00.00</div>
+    </div>
+    <div class="lastbox">
+      <div class="phase">Last move</div>
+      <div class="lt" id="last"></div>
+    </div>
+    <div class="stats">
+      moves <b id="moves">0</b><br>
+      best <b id="best">–</b>
+    </div>
+  </header>
+
+  <div class="faces">
+    <div class="face"><svg id="faceA" viewBox="-16 -16 332 332" aria-label="Side facing you"></svg><div class="cap" id="capA">Facing you</div></div>
+    <div class="face"><svg id="faceB" viewBox="-16 -16 332 332" aria-label="Back side, as you'd see it flipped over"></svg><div class="cap" id="capB">Back (flipped over)</div></div>
+  </div>
+
+  <div class="controls">
+    <button class="primary" id="btnScramble">Scramble</button>
+    <button id="btnUndo">Undo</button>
+    <button id="btnFlip">Flip</button>
+    <button id="btnReset">Reset</button>
+    <button id="btnHelp" style="flex:0 0 auto">How it works</button>
+  </div>
+</div>
+
+<div class="sheet" id="sheet" hidden><div class="inner">
+  <p style="margin:0 0 14px"><a href="../">← Sliding puzzles</a></p>
+  <h2>How the clock puzzle works</h2>
+  <p>The puzzle has two faces with 9 clocks each. It's solved when all 18 clocks point to 12 (the orange mark).</p>
+  <h3>The parts</h3>
+  <ul>
+    <li><b>Wheels</b> sit on the four corners. Drag around a wheel to turn it. Clockwise turns the clocks clockwise as seen from the side you're dragging on.</li>
+    <li><b>Pins</b> sit between the clocks. Each pin sticks out on one side and is pushed in on the other. Tap a pin to push it through. Yellow means it sticks out toward you.</li>
+    <li><b>Corner clocks are shared.</b> Each corner clock is geared to the matching corner on the back. When one turns, the other turns the opposite way. That's why the back's corners always mirror the front's.</li>
+  </ul>
+  <h3>What a wheel moves</h3>
+  <ol>
+    <li>Look at the pin next to the wheel you're turning.</li>
+    <li>If that pin sticks out toward you, every pin that sticks out on your side locks its 2×2 block of clocks to the wheel. All those clocks turn together.</li>
+    <li>If that pin is pushed in, the turn happens on the back instead, using the pins that stick out back there.</li>
+    <li>The back's corners always come along for the ride, turning the opposite way.</li>
+  </ol>
+  <p>Touch and hold a wheel to see which clocks it will move. They light up blue on both faces.</p>
+  <h3>Things to try</h3>
+  <ul>
+    <li>Push all four pins out toward you and turn any wheel: the whole face turns at once, and the back's corners spin the other way.</li>
+    <li>Push out just one pin: only that 2×2 block turns.</li>
+    <li>Push out two pins side by side: a 2×3 block turns. The center and edge clocks between them always move together.</li>
+    <li>Corners are easy because each one has its own wheel. The edges and center are what take planning.</li>
+  </ul>
+  <div class="row">
+    <span>Show what a wheel will move</span>
+    <span class="seg" role="group" aria-label="Show what a wheel will move">
+      <button data-hint="on">On</button>
+      <button data-hint="off">Off</button>
+    </span>
+  </div>
+  <p><button id="btnClose" class="primary" style="flex:none;margin-top:12px">Done</button></p>
+</div></div>
+
+<script>
+(function(){
+const NS='http://www.w3.org/2000/svg';
+const $=id=>document.getElementById(id);
+
+// ---------- model ----------
+// Two sides (0 and 1). Each side's clocks are stored as seen from that side, cells 0..8 row by row.
+// Values are cumulative hour turns (so hands can animate the long way round); hour = value mod 12.
+const QUAD=[[0,1,3,4],[1,2,4,5],[3,4,6,7],[4,5,7,8]]; // cells around pins UL, UR, DL, DR
+const CORNER=[0,2,6,8];                              // corner cell next to each pin/wheel
+const mirC=c=>[1,0,3,2][c];                           // a corner seen from the other side
+const mirCell=i=>Math.floor(i/3)*3+(2-i%3);
+const NAMES=['UL','UR','DL','DR'];
+let clocks=[Array(9).fill(0),Array(9).fill(0)];
+let pins=[false,false,false,false];   // true = sticks out toward side 0
+let wheelTurns=[0,0,0,0];             // per corner, as seen from side 0
+let facing=0;                         // which side is facing you
+
+const up=(s,p)=>s===0?pins[p]:!pins[mirC(p)];
+// what a +1 (clockwise from side s) turn of wheel c moves: list of [side, cell, sign]
+function effect(s,c){
+  if(!up(s,c))return effect(1-s,mirC(c)).map(([sd,i,g])=>[sd,i,-g]);
+  const cells=new Set();
+  for(let p=0;p<4;p++)if(up(s,p))QUAD[p].forEach(i=>cells.add(i));
+  const out=[];
+  for(const i of cells){out.push([s,i,1]);if(CORNER.includes(i))out.push([1-s,mirCell(i),-1]);}
+  return out;
+}
+function turn(s,c,k){
+  for(const [sd,i,g] of effect(s,c))clocks[sd][i]+=g*k;
+  if(s===0)wheelTurns[c]+=k;else wheelTurns[mirC(c)]-=k;
+}
+const hour=v=>((v%12)+12)%12;
+const isSolved=()=>clocks.every(side=>side.every(v=>hour(v)===0));
+
+// ---------- drawing ----------
+const CX=[62,150,238];
+const PINXY=[[106,106],[194,106],[106,194],[194,194]];
+const WHEELXY=[[10,10],[290,10],[10,290],[290,290]];
+const views=[]; // per slot (0 = top/facing, 1 = bottom/back): {svg, side, dials, hands, pins, wheels, grips}
+function mk(parent,tag,attrs){const el=document.createElementNS(NS,tag);for(const [a,v] of Object.entries(attrs))el.setAttribute(a,v);parent.appendChild(el);return el;}
+function buildView(slot){
+  const svg=slot===0?$('faceA'):$('faceB');
+  const side=slot===0?facing:1-facing;
+  svg.replaceChildren();
+  svg.setAttribute('class',side===0?'light':'dark');
+  const v={svg,side,dials:[],hands:[],pins:[],wheels:[],grips:[],shown:Array(9).fill(null),wshown:Array(4).fill(null)};
+  // wheels first so the body overlaps them slightly, like real edge wheels
+  for(let c=0;c<4;c++){
+    const [x,y]=WHEELXY[c];
+    const g=mk(svg,'g',{'data-wheel':c});
+    mk(g,'circle',{cx:x,cy:y,r:40,fill:'transparent'}); // generous touch target
+    v.wheels.push(mk(g,'circle',{cx:x,cy:y,r:24,class:'wheel'}));
+    const gripG=mk(g,'g',{transform:`translate(${x},${y})`});
+    const grip=mk(gripG,'g',{});
+    for(let a=0;a<8;a++){const t=a*Math.PI/4;mk(grip,'line',{x1:Math.cos(t)*13,y1:Math.sin(t)*13,x2:Math.cos(t)*21,y2:Math.sin(t)*21,class:'grip'});}
+    v.grips.push(grip);
+  }
+  mk(svg,'rect',{x:4,y:4,width:292,height:292,rx:64,class:'body'});
+  for(let i=0;i<9;i++){
+    const x=CX[i%3],y=CX[Math.floor(i/3)];
+    const g=mk(svg,'g',{transform:`translate(${x},${y})`});
+    v.dials.push(mk(g,'circle',{r:35,class:'dial'}));
+    for(let h=1;h<12;h++){const t=h*Math.PI/6;mk(g,'circle',{cx:Math.sin(t)*29,cy:-Math.cos(t)*29,r:h%3===0?2.6:1.6,class:'tick'});}
+    mk(g,'path',{d:'M0,-34 L-5,-26 L5,-26 Z',class:'noon'});
+    const hand=mk(g,'g',{});
+    mk(hand,'path',{d:'M0,-27 L4.5,-3 A4.6,4.6 0 1 1 -4.5,-3 Z',class:'hand'});
+    mk(g,'circle',{r:2.2,class:'cap2',fill:'#888'});
+    v.hands.push(hand);
+  }
+  for(let p=0;p<4;p++){
+    const [x,y]=PINXY[p];
+    const g=mk(svg,'g',{'data-pin':p});
+    mk(g,'circle',{cx:x,cy:y,r:20,fill:'transparent'});
+    mk(g,'circle',{cx:x,cy:y,r:12,class:'pin-hole'});
+    v.pins.push(mk(g,'circle',{cx:x,cy:y,r:10,class:'pin'}));
+  }
+  views[slot]=v;
+}
+function buildAll(){buildView(0);buildView(1);$('capA').textContent=(facing===0?'Light side':'Dark side')+' · facing you';$('capB').textContent=(facing===0?'Dark side':'Light side')+' · back, flipped over';}
+
+// hands and wheels ease toward their targets
+let raf=0;
+function targetHand(v,i){return clocks[v.side][i]*30;}
+function targetWheel(v,c){return (v.side===0?wheelTurns[c]:-wheelTurns[mirC(c)])*30;}
+const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+function draw(instant){
+  for(const v of views){
+    for(let p=0;p<4;p++){const isUp=up(v.side,p);v.pins[p].setAttribute('class','pin '+(isUp?'up':'down'));v.pins[p].setAttribute('r',isUp?10:7);}
+    const solved=isSolved();
+    v.dials.forEach(d=>d.classList.toggle('solved',solved&&phase==='done'));
+  }
+  if(instant||reduced){for(const v of views){v.shown=v.shown.map((_,i)=>targetHand(v,i));v.wshown=v.wshown.map((_,c)=>targetWheel(v,c));}apply();return;}
+  if(!raf){let t0=performance.now();const step=now=>{
+    const dt=Math.min(64,now-t0);t0=now;const f=1-Math.exp(-dt/45);let busy=false;
+    for(const v of views){
+      for(let i=0;i<9;i++){const t=targetHand(v,i);let s=v.shown[i]??t;s+=(t-s)*f;if(Math.abs(t-s)<.3)s=t;else busy=true;v.shown[i]=s;}
+      for(let c=0;c<4;c++){const t=targetWheel(v,c);let s=v.wshown[c]??t;s+=(t-s)*f;if(Math.abs(t-s)<.3)s=t;else busy=true;v.wshown[c]=s;}
+    }
+    apply();raf=busy?requestAnimationFrame(step):0;
+  };raf=requestAnimationFrame(step);}
+}
+function apply(){
+  for(const v of views){
+    v.hands.forEach((h,i)=>h.setAttribute('transform',`rotate(${(v.shown[i]??0).toFixed(2)})`));
+    v.grips.forEach((g,c)=>g.setAttribute('transform',`rotate(${(v.wshown[c]??0).toFixed(2)})`));
+  }
+}
+function highlight(slotSide,c){
+  for(const v of views){v.dials.forEach(d=>d.classList.remove('hl'));v.wheels.forEach(w=>w.classList.remove('hl'));}
+  if(slotSide==null)return;
+  for(const v of views){
+    const wc=v.side===slotSide?c:mirC(c);v.wheels[wc].classList.add('hl');
+    if(!showHint)continue;
+    for(const [sd,i] of effect(slotSide,c))if(sd===v.side)v.dials[i].classList.add('hl');
+  }
+}
+
+// ---------- state, timer, history ----------
+let phase='free',startT=0,endT=0,moves=0,best=null,history=[],showHint=true;
+const fmt=ms=>{const cs=Math.floor(ms/10),m=Math.floor(cs/6000),s=Math.floor(cs/100)%60,c=cs%100;return m+':'+String(s).padStart(2,'0')+'.'+String(c).padStart(2,'0');};
+function hud(){
+  const t=phase==='running'?performance.now()-startT:(phase==='done'?endT-startT:0);
+  $('time').textContent=fmt(Math.max(0,t));$('time').classList.toggle('done',phase==='done');
+  $('phase').textContent={free:'Free play',ready:'Scrambled, timer starts on first turn',running:'Solving',done:'Solved'}[phase];
+  $('moves').textContent=moves;$('best').textContent=best==null?'–':fmt(best);
+  document.querySelectorAll('[data-hint]').forEach(b=>b.setAttribute('aria-pressed',(b.dataset.hint==='on')===showHint));
+}
+function tick(){if(phase!=='running')return;hud();requestAnimationFrame(tick);}
+function save(){try{localStorage.setItem('clockpuzzle',JSON.stringify({clocks,pins,wheelTurns,facing,phase,moves,best,history,showHint,startT:phase==='running'?Date.now()-(performance.now()-startT):0,elapsed:endT-startT}));}catch(e){}}
+function load(){
+  try{const d=JSON.parse(localStorage.getItem('clockpuzzle')||'null');if(!d||!Array.isArray(d.clocks))return;
+    clocks=d.clocks;pins=d.pins;wheelTurns=d.wheelTurns||[0,0,0,0];facing=d.facing||0;phase=d.phase||'free';moves=d.moves||0;best=d.best??null;history=d.history||[];showHint=d.showHint!==false;
+    if(phase==='running'){startT=performance.now()-(Date.now()-d.startT);requestAnimationFrame(tick);}
+    if(phase==='done'){startT=0;endT=d.elapsed||0;}
+  }catch(e){}
+}
+function afterTurn(){
+  if(phase==='ready'){phase='running';startT=performance.now();requestAnimationFrame(tick);}
+  if(phase==='running'&&isSolved()){phase='done';endT=performance.now();const t=endT-startT;if(best==null||t<best)best=t;}
+  draw();hud();save();
+}
+function doTurn(s,c,k,record=true){
+  turn(s,c,k);
+  if(record){
+    const h=history[history.length-1];
+    if(h&&h.type==='turn'&&h.open&&h.s===s&&h.c===c)h.k+=k;else history.push({type:'turn',s,c,k,open:true});
+    moves++;
+  }
+  try{navigator.vibrate&&navigator.vibrate(5);}catch(e){}
+  afterTurn();
+}
+function togglePin(s,p,record=true){
+  const fp=s===0?p:mirC(p);pins[fp]=!pins[fp];
+  if(record)history.push({type:'pin',p:fp});
+  $('last').textContent=`${NAMES[p]} pin ${up(s,p)?'out':'in'}`;
+  try{navigator.vibrate&&navigator.vibrate(8);}catch(e){}
+  draw();save();
+}
+const showTurn=(s,c,k)=>{$('last').textContent=`${NAMES[c]} ${k>0?'+':'−'}${Math.abs(k)}`;};
+
+// ---------- input ----------
+let wdrag=null;
+document.addEventListener('pointerdown',e=>{
+  if(e.button>0||e.target.closest('button,.sheet'))return;
+  e.preventDefault();
+  const svg=e.target.closest('svg');if(!svg)return;
+  const v=views.find(x=>x.svg===svg);if(!v)return;
+  const pinEl=e.target.closest('[data-pin]'),wEl=e.target.closest('[data-wheel]');
+  if(pinEl){togglePin(v.side,+pinEl.dataset.pin);return;}
+  if(wEl){
+    const c=+wEl.dataset.wheel;
+    const r=v.wheels[c].getBoundingClientRect();
+    const cx=r.left+r.width/2,cy=r.top+r.height/2;
+    wdrag={id:e.pointerId,v,c,cx,cy,a:Math.atan2(e.clientY-cy,e.clientX-cx),acc:0,total:0};
+    // close the previous merged turn so a fresh grab counts as a new move
+    const h=history[history.length-1];if(h)h.open=false;
+    highlight(v.side,c);
+  }
+});
+document.addEventListener('pointermove',e=>{
+  if(!wdrag||e.pointerId!==wdrag.id)return;
+  const dx=e.clientX-wdrag.cx,dy=e.clientY-wdrag.cy;
+  if(Math.hypot(dx,dy)<10)return; // too close to the center to read a direction
+  const a=Math.atan2(dy,dx);let d=a-wdrag.a;
+  if(d>Math.PI)d-=2*Math.PI;if(d<-Math.PI)d+=2*Math.PI;
+  wdrag.a=a;wdrag.acc+=d;
+  const step=Math.PI/6; // one hour per 30 degrees of drag
+  while(Math.abs(wdrag.acc)>=step){
+    const k=Math.sign(wdrag.acc);wdrag.acc-=k*step;wdrag.total+=k;
+    doTurn(wdrag.v.side,wdrag.c,k);showTurn(wdrag.v.side,wdrag.c,wdrag.total);
+    highlight(wdrag.v.side,wdrag.c);
+  }
+});
+const endDrag=e=>{if(wdrag&&e.pointerId===wdrag.id){wdrag=null;highlight(null);const h=history[history.length-1];if(h&&h.type==='turn'){h.open=false;if(h.k===0){history.pop();}}}};
+document.addEventListener('pointerup',endDrag);
+document.addEventListener('pointercancel',endDrag);
+document.addEventListener('contextmenu',e=>{if(e.target.closest('svg'))e.preventDefault();});
+
+// ---------- controls ----------
+function scramble(){
+  clocks=[Array(9).fill(0),Array(9).fill(0)];wheelTurns=[0,0,0,0];
+  for(let i=0;i<16;i++){
+    pins=pins.map(()=>Math.random()<.5);
+    const k=[1,2,3,4,5,6,-1,-2,-3,-4,-5][Math.floor(Math.random()*11)];
+    turn(Math.random()<.5?0:1,Math.floor(Math.random()*4),k);
+  }
+  pins=pins.map(()=>Math.random()<.5);
+  if(isSolved())return scramble();
+  phase='ready';moves=0;history=[];startT=endT=0;$('last').textContent='';
+  draw();hud();save();
+}
+$('btnScramble').onclick=scramble;
+$('btnUndo').onclick=()=>{
+  const h=history.pop();if(!h)return;
+  if(h.type==='pin'){pins[h.p]=!pins[h.p];$('last').textContent='undo pin';draw();save();}
+  else{turn(h.s,h.c,-h.k);moves++;$('last').textContent='undo';afterTurn();}
+};
+$('btnFlip').onclick=()=>{facing=1-facing;buildAll();draw(true);save();$('last').textContent='flipped';};
+$('btnReset').onclick=()=>{clocks=[Array(9).fill(0),Array(9).fill(0)];wheelTurns=[0,0,0,0];pins=[false,false,false,false];phase='free';moves=0;history=[];startT=endT=0;$('last').textContent='';draw(true);hud();save();};
+$('btnHelp').onclick=()=>{$('sheet').hidden=false;};
+$('btnClose').onclick=()=>{$('sheet').hidden=true;};
+document.querySelectorAll('[data-hint]').forEach(b=>b.onclick=()=>{showHint=b.dataset.hint==='on';hud();save();});
+
+load();buildAll();draw(true);hud();
+})();
+</script>
+</body>
+</html>

@@ -39,3 +39,9 @@ Each board is a builder in `index.html` that returns a list of cells, each with 
 2×2 to 5×5 Rubik's cubes built for phones: **https://jesskady.github.io/sliding-puzzles/cube/**
 
 An exploded view shows the front face framed by the top, bottom, left and right faces, plus an x-ray back preview. Drag any sticker and its row or column turns with your finger (R, U, F and so on, plus B from the outer rows). Pads below the cube turn the whole cube (x/y and z). On 4×4 and 5×5 a SLICE / WIDE toggle decides whether an inner row turns alone (2R) or with everything outside it (Rw). Includes scramble, a solve timer, undo, animation speed, slice mode, and a drag-to-rearrange bottom row. The whole thing is `cube/index.html`.
+
+## Clock puzzle
+
+A two-sided clock puzzle: **https://jesskady.github.io/sliding-puzzles/clock/**
+
+Nine clocks on each face, four pins, four corner wheels. Get all 18 clocks to 12. Drag around a wheel to turn it, and tap a pin to push it through. Holding a wheel lights up every clock it will move, on both faces, which makes it a good way to learn how the pins and gears connect. "How it works" explains the rules. The whole thing is `clock/index.html`.
