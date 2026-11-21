@@ -332,12 +332,17 @@ const builders = {
       palette = ['#e23b3b', '#f3b46c', '#6a3fd0', '#3fa3f0', '#f57c1f', '#d9409e', '#3fcfa2', '#2c33b8', '#ece2f6'];
       colorOf = m => m.length === 1 ? m[0] : (({ '01': 4, '02': 5, '13': 6, '23': 7 })[m.join('')] ?? 8);
     } else {
-      // Six disks around a center, each passing through it. Where a disk is
-      // alone it shows its color; everywhere two or more overlap is white.
+      // Six disks around a center, each passing through it. Each disk's
+      // outer end is a colored oval: the lens inside both the disk and a
+      // same-size circle centered twice as far out (one of the grooves).
+      // Neighboring ovals touch at the rim; everything else is white.
       const R = 72; r = R;
       centers = [[R, 0], [0, R], [-R, R], [-R, 0], [0, -R], [R, -R]]; // yellow, green, blue, purple, red, orange
       palette = ['#f6cc2e', '#1fa37a', '#2f6fe4', '#7a3fc4', '#e2343a', '#f26a2e', '#f4f1f8'];
-      colorOf = m => m.length === 1 ? m[0] : 6;
+      colorOf = (m, i, j) => {
+        const k = centers.findIndex(([a, b]) => inDisk(i, j, [a, b]) && inDisk(i, j, [2 * a, 2 * b]));
+        return k < 0 ? 6 : k;
+      };
     }
     const r4 = 4 * r * r + 1e-6;
     const inDisk = (i, j, [ci, cj]) => {
@@ -352,7 +357,7 @@ const builders = {
         const m = centers.flatMap((c, k) => inDisk(i, j, c) ? [k] : []);
         if (!m.length) continue;
         index.set(key(i, j), pts.length);
-        pts.push([i, j]); colors.push(colorOf(m)); masks.push(m.reduce((s, k) => s | (1 << k), 0));
+        pts.push([i, j]); colors.push(colorOf(m, i, j)); masks.push(m.reduce((s, k) => s | (1 << k), 0));
       }
     // one clockwise step for each disk, as [from, to] index pairs
     const perms = centers.map(c => {
